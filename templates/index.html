@@ -1,41 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="bg" data-theme="dark">
 <head>
-    <title>ГДПБЗН Оперативен център</title>
+    <meta charset="UTF-8">
+    <title>ГДПБЗН | Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div id="sidebar">
-        <div style="margin-bottom: 20px;">
-            <a href="{{ url_for('logout') }}" class="btn-logout">Изход</a>
-            <h3 style="margin: 0;">ГДПБЗН</h3>
-            <small>Оператор: {{ user }}</small>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <span style="font-weight: 600;"><i class="fas fa-user-shield"></i> {{ user }}</span>
+            <a href="{{ url_for('logout') }}" style="color: #94a3b8;"><i class="fas fa-power-off"></i></a>
         </div>
 
-        <div style="background: #34495e; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-            <h4 style="margin-top: 0;">Ново събитие</h4>
+        <button class="btn-red" onclick="document.getElementById('addForm').style.display='block'">+ НОВ СИГНАЛ</button>
+
+        <div id="addForm" style="display:none; margin-top:10px;">
             <form action="{{ url_for('add_incident') }}" method="POST">
-                <input type="text" name="title" placeholder="Заглавие" required>
-                <input type="text" name="description" placeholder="Описание">
-                <div style="display: flex; gap: 5px;">
-                    <input type="number" step="any" name="lat" placeholder="Lat" required>
-                    <input type="number" step="any" name="lon" placeholder="Lon" required>
-                </div>
-                <button type="submit" style="background: #e67e22; margin-top: 5px;">Добави на картата</button>
+                <select name="title">
+                    <option value="Пожар">Пожар</option>
+                    <option value="ПТП">ПТП</option>
+                </select>
+                <input type="number" step="any" name="lat" placeholder="Lat" required>
+                <input type="number" step="any" name="lon" placeholder="Lon" required>
+                <button type="submit" class="btn-red" style="background:#10b981;">ДОБАВИ</button>
             </form>
         </div>
 
-        <h3 style="border-top: 1px solid #555; padding-top: 15px;">Активни събития</h3>
-        <div class="incidents-list" style="flex: 1; overflow-y: auto;">
+        <div style="overflow-y: auto; flex: 1; margin-top: 20px;">
             {% for inc in incidents %}
-            <div class="card">
-                <strong>{{ inc.title }}</strong><br>
-                <small>{{ inc.description }}</small><br>
-                <code style="font-size: 10px; color: #bdc3c7;">{{ inc.lat }}, {{ inc.lon }}</code>
+            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 10px; margin-bottom: 8px;">
+                <strong>{{ inc.title }}</strong>
             </div>
             {% endfor %}
         </div>
+
+        <div class="bottom-controls">
+            <button class="theme-btn" onclick="toggleTheme()">
+                <i id="theme-icon" class="fas fa-sun"></i>
+            </button>
+        </div>
     </div>
+
     <div id="map">{{ map_html|safe }}</div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.setAttribute('data-theme', 'light');
+                icon.className = 'fas fa-moon';
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                icon.className = 'fas fa-sun';
+            }
+        }
+    </script>
 </body>
 </html>

@@ -1,18 +1,19 @@
 <!DOCTYPE html>
-<html>
+<html lang="bg">
 <head>
-    <title>Регистрация</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body style="display: block;">
-    <div class="auth-container">
-        <h2>Регистрация</h2>
+<body class="auth-wrapper">
+    <div class="auth-box">
+        <h2 style="color: var(--primary-red); margin-top: 0;">Вход в системата</h2>
         <form method="POST">
             <input type="text" name="username" placeholder="Потребител" required>
             <input type="password" name="password" placeholder="Парола" required>
-            <button type="submit" style="background: #2980b9;">Регистрирай се</button>
+            <button type="submit" class="toggle-add" style="margin-top: 20px;">ВЛЕЗ</button>
         </form>
-        <p style="color: #333; text-align: center;"><a href="{{ url_for('login') }}">Назад към входа</a></p>
+        <p style="font-size: 14px; color: #64748b; margin-top: 15px;">
+            Нямате акаунт? <a href="{{ url_for('login') }}" style="color: var(--primary-red); text-decoration: none;">Регистрация</a>
+        </p>
     </div>
 </body>
 </html>

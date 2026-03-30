@@ -6,18 +6,35 @@
 </head>
 <body>
     <div id="sidebar">
-        <div>
+        <div style="margin-bottom: 20px;">
             <a href="{{ url_for('logout') }}" class="btn-logout">Изход</a>
-            <h3>ГДПБЗН</h3>
+            <h3 style="margin: 0;">ГДПБЗН</h3>
+            <small>Оператор: {{ user }}</small>
         </div>
-        <p>Оператор: {{ user }}</p>
-        <hr>
-        {% for inc in incidents %}
-        <div class="card">
-            <strong>{{ inc.title }}</strong><br>
-            <small>{{ inc.description }}</small>
+
+        <div style="background: #34495e; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+            <h4 style="margin-top: 0;">Ново събитие</h4>
+            <form action="{{ url_for('add_incident') }}" method="POST">
+                <input type="text" name="title" placeholder="Заглавие" required>
+                <input type="text" name="description" placeholder="Описание">
+                <div style="display: flex; gap: 5px;">
+                    <input type="number" step="any" name="lat" placeholder="Lat" required>
+                    <input type="number" step="any" name="lon" placeholder="Lon" required>
+                </div>
+                <button type="submit" style="background: #e67e22; margin-top: 5px;">Добави на картата</button>
+            </form>
         </div>
-        {% endfor %}
+
+        <h3 style="border-top: 1px solid #555; padding-top: 15px;">Активни събития</h3>
+        <div class="incidents-list" style="flex: 1; overflow-y: auto;">
+            {% for inc in incidents %}
+            <div class="card">
+                <strong>{{ inc.title }}</strong><br>
+                <small>{{ inc.description }}</small><br>
+                <code style="font-size: 10px; color: #bdc3c7;">{{ inc.lat }}, {{ inc.lon }}</code>
+            </div>
+            {% endfor %}
+        </div>
     </div>
     <div id="map">{{ map_html|safe }}</div>
 </body>

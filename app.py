@@ -18,18 +18,34 @@ def index():
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
-    incidents_list = Incident.query.all()
+    incidents_list = Incident.query.order_by(Incident.timestamp.desc()).all()
     folium_map = folium.Map(location=[42.7, 24.5], zoom_start=7)
 
     for inc in incidents_list:
         folium.Marker(
             location=[inc.lat, inc.lon],
-            popup=inc.title,
+            popup=f"<b>{inc.title}</b><br>{inc.description}",
             icon=folium.Icon(color='red', icon='fire', prefix='fa')
         ).add_to(folium_map)
 
     map_html = folium_map._repr_html_()
     return render_template('index.html', incidents=incidents_list, map_html=map_html, user=session['username'])
+
+
+@app.route('/add_incident', methods=['POST'])
+def add_incident():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    title = request.form.get('title')
+    description = request.form.get('description')
+    lat = float(request.form.get('lat'))
+    lon = float(request.form.get('lon'))
+
+    new_inc = Incident(title=title, lat=lat, lon=lon, description=description)
+    db.session.add(new_inc)
+    db.session.commit()
+    return redirect(url_for('index'))
 
 
 @app.route('/login', methods=['GET', 'POST'])

@@ -1,8 +1,9 @@
-body { margin: 0; display: flex; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #f4f4f4; }
-#sidebar { width: 350px; background: #2c3e50; color: white; padding: 20px; display: flex; flex-direction: column; }
-#map { flex: 1; }
-.card { background: #34495e; padding: 15px; margin-top: 15px; border-radius: 6px; border-left: 5px solid #e74c3c; }
-.btn-logout { background: #e74c3c; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; float: right; font-size: 14px; }
-input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #ccc; }
-button { width: 100%; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; }
-.auth-container { width: 300px; margin: 100px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+body { margin: 0; display: flex; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #f4f4f4; overflow: hidden; }
+#sidebar { width: 350px; background: #2c3e50; color: white; padding: 20px; display: flex; flex-direction: column; box-shadow: 2px 0 5px rgba(0,0,0,0.3); z-index: 10; }
+#map { flex: 1; z-index: 1; }
+.card { background: #34495e; padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 5px solid #e74c3c; }
+.btn-logout { background: #e74c3c; color: white; text-decoration: none; padding: 5px 12px; border-radius: 4px; float: right; font-size: 13px; }
+input { width: 100%; padding: 8px; margin: 5px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; font-size: 13px; }
+button { width: 100%; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+button:hover { opacity: 0.9; }
+.auth-container { width: 320px; margin: 100px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }

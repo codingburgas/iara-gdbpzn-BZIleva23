@@ -1,18 +1,17 @@
 <!DOCTYPE html>
-<html lang="bg">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>ГДПБЗН Система</title>
-    <style>
-        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
-        #sidebar { width: 300px; background: #2c3e50; color: white; padding: 20px; overflow-y: auto; }
-        #map { flex: 1; }
-        .card { background: #34495e; padding: 10px; margin-bottom: 10px; border-radius: 5px; border-left: 5px solid #e74c3c; }
-    </style>
+    <title>ГДПБЗН Оперативен център</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div id="sidebar">
-        <h2>Активни събития</h2>
+        <div>
+            <a href="{{ url_for('logout') }}" class="btn-logout">Изход</a>
+            <h3>ГДПБЗН</h3>
+        </div>
+        <p>Оператор: {{ user }}</p>
+        <hr>
         {% for inc in incidents %}
         <div class="card">
             <strong>{{ inc.title }}</strong><br>
@@ -20,8 +19,6 @@
         </div>
         {% endfor %}
     </div>
-    <div id="map">
-        {{ map_html|safe }}
-    </div>
+    <div id="map">{{ map_html|safe }}</div>
 </body>
 </html>

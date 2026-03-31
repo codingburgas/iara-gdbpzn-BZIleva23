@@ -17,7 +17,7 @@
 
 body, html { margin: 0; height: 100%; font-family: 'Inter', sans-serif; background: var(--bg-main); color: var(--text); }
 
-/* ФОРМА ЗА ВХОД - ПРАВОЪГЪЛНИК В ЦЕНТЪРА */
+
 .auth-wrapper {
     display: flex; justify-content: center; align-items: center; height: 100vh;
 }
@@ -27,7 +27,6 @@ body, html { margin: 0; height: 100%; font-family: 'Inter', sans-serif; backgrou
     border: 1px solid var(--border); text-align: center;
 }
 
-/* SIDEBAR - ПЛАВАЩ */
 #sidebar {
     position: absolute; top: 20px; left: 20px; bottom: 20px; width: 300px;
     background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px);
@@ -54,7 +53,6 @@ input, select {
     color: var(--text); width: 40px; height: 40px; border-radius: 10px;
 }
 
-/* АНИМАЦИЯ */
 @keyframes pulse {
     0% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.2); opacity: 0.7; }

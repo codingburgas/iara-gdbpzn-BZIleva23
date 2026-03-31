@@ -1,66 +1,53 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
-
 :root {
-    --bg-main: #020617;
-    --sidebar-bg: rgba(15, 23, 42, 0.85);
-    --card-bg: #1e293b;
-    --text: #f1f5f9;
-    --primary-red: #dc2626;
-    --border: #334155;
+    --primary: #ef4444;
+    --bg: #0f172a;
+    --sidebar-bg: rgba(15, 23, 42, 0.8);
+    --card-bg: rgba(30, 41, 59, 0.5);
+    --text: #f8fafc;
+    --border: rgba(255, 255, 255, 0.1);
 }
 
 [data-theme="light"] {
-    --bg-main: #f8fafc;
-    --sidebar-bg: rgba(255, 255, 255, 0.85);
-    --card-bg: #ffffff;
+    --bg: #f1f5f9;
+    --sidebar-bg: rgba(255, 255, 255, 0.8);
+    --card-bg: rgba(255, 255, 255, 0.6);
     --text: #0f172a;
-    --border: #e2e8f0;
+    --border: rgba(0, 0, 0, 0.1);
 }
 
-body, html { margin: 0; height: 100%; font-family: 'Inter', sans-serif; background: var(--bg-main); color: var(--text); overflow: hidden; }
-
-#map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-
-.auth-wrapper { display: flex; justify-content: center; align-items: center; height: 100vh; background: var(--bg-main); }
-.auth-box {
-    width: 380px; padding: 40px; background: var(--card-bg);
-    border-radius: 24px; box-shadow: 0 20px 25px rgba(0,0,0,0.2);
-    border: 1px solid var(--border); text-align: center; z-index: 2;
-}
+body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
 
 #sidebar {
-    position: absolute; top: 20px; left: 20px; bottom: 20px; width: 300px;
+    position: fixed; left: 0; top: 0; bottom: 0; width: 350px;
     background: var(--sidebar-bg); backdrop-filter: blur(12px);
-    border-radius: 24px; border: 1px solid var(--border);
-    z-index: 1000; display: flex; flex-direction: column; padding: 20px;
+    border-right: 1px solid var(--border); z-index: 1000;
+    padding: 25px; display: flex; flex-direction: column;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.glass-card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 16px; padding: 15px; margin-bottom: 15px;
+    backdrop-filter: blur(4px); transition: transform 0.3s ease;
+}
+
+.incident-card:hover { transform: scale(1.03); border-color: var(--primary); cursor: pointer; }
+
 input, select {
-    width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px;
-    border: 1px solid var(--border); background: var(--bg-main); color: var(--text);
-    box-sizing: border-box;
+    width: 100%; padding: 12px; margin: 8px 0;
+    background: rgba(0,0,0,0.1); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); box-sizing: border-box;
 }
 
 .btn-red {
-    width: 100%; padding: 12px; background: var(--primary-red);
-    color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    background: var(--primary); color: white; border: none;
+    padding: 12px; border-radius: 8px; width: 100%;
+    font-weight: bold; cursor: pointer; transition: 0.3s;
 }
 
-.incident-card {
-    background: var(--card-bg); padding: 12px; border-radius: 12px;
-    margin-bottom: 8px; border: 1px solid var(--border); cursor: pointer; transition: 0.2s;
-}
-.incident-card:hover { border-color: var(--primary-red); }
+#map { position: absolute; right: 0; top: 0; bottom: 0; left: 350px; transition: all 0.5s ease; }
 
-.bottom-controls { margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
-.theme-btn {
-    cursor: pointer; background: var(--card-bg); border: 1px solid var(--border);
-    color: var(--text); width: 40px; height: 40px; border-radius: 10px;
+.auth-page {
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
-
-@keyframes marker-pulse {
-    0% { transform: scale(1); filter: drop-shadow(0 0 0px red); }
-    50% { transform: scale(1.15); filter: drop-shadow(0 0 8px red); }
-    100% { transform: scale(1); filter: drop-shadow(0 0 0px red); }
-}
-.leaflet-marker-icon { animation: marker-pulse 2s infinite ease-in-out; }

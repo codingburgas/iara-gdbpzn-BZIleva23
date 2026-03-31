@@ -2,18 +2,20 @@
 <html lang="bg">
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 </head>
-<body class="auth-wrapper">
-    <div class="auth-box">
-        <h2 style="color: var(--primary-red);">Вход</h2>
+<body class="auth-page">
+    <div class="glass-card" id="login-box" style="width: 300px; text-align: center;">
+        <h2><i class="fas fa-lock"></i> ВХОД</h2>
         <form method="POST">
             <input type="text" name="username" placeholder="Потребител" required>
             <input type="password" name="password" placeholder="Парола" required>
-            <button type="submit" class="btn-red">ВЛЕЗ</button>
+            <button type="submit" class="btn-red">ВЛИЗАНЕ</button>
         </form>
-        <p style="font-size: 14px; margin-top: 20px;">
-            Нямате акаунт? <a href="{{ url_for('register') }}" style="color: var(--primary-red); text-decoration: none;">Регистрация</a>
-        </p>
+        <p style="font-size:12px; margin-top:15px;">Нямате акаунт? <a href="{{ url_for('register') }}" style="color:var(--primary)">Регистрирайте се</a></p>
     </div>
+    <script>
+        anime({ targets: '#login-box', scale: [0.9, 1], opacity: [0, 1], duration: 1000, easing: 'easeOutBack' });
+    </script>
 </body>
 </html>

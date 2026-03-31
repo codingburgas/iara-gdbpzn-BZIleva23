@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, session, abort
 from models import db, User, Incident
 import folium
+import json
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///fire_system.db'
-app.config['SECRET_KEY'] = 'fire-secure-key-2026'
+app.config['SECRET_KEY'] = 'phoenix-2026-final'
 db.init_app(app)
 
 with app.app_context():
@@ -13,59 +14,43 @@ with app.app_context():
 
 @app.route('/')
 def index():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    if 'user_id' not in session: return redirect(url_for('login'))
 
-    incidents_list = Incident.query.order_by(Incident.timestamp.desc()).all()
-    is_privileged = session.get('role') in ['admin', 'firefighter']
-    all_users = User.query.all() if is_privileged else []
+    incidents = Incident.query.order_by(Incident.timestamp.desc()).all()
+    users = User.query.all()
 
     m = folium.Map(location=[42.7, 24.5], zoom_start=7, tiles=None, zoom_control=False)
-
     dark = folium.TileLayer('CartoDB dark_matter', name='dark', control=False).add_to(m)
     light = folium.TileLayer('CartoDB positron', name='light', control=False).add_to(m)
 
-    map_id = m.get_name()
+    incidents_data = []
+    for inc in incidents:
+        marker = folium.Marker(
+            [inc.lat, inc.lon],
+            popup=f"<b>{inc.title}</b><br>{inc.description}",
+            icon=folium.Icon(color='red', icon='fire', prefix='fa')
+        )
+        marker.add_to(m)
+
+        incidents_data.append({
+            'id': inc.id,
+            'title': inc.title,
+            'lat': inc.lat,
+            'lon': inc.lon,
+            'marker_id': marker.get_name()  # Връзката между JS и Маркера
+        })
+
     m.get_root().html.add_child(folium.Element(f"""
         <script>
-            window.mapInstance = {map_id};
+            window.mapObj = {m.get_name()};
             window.darkLayer = {dark.get_name()};
             window.lightLayer = {light.get_name()};
+            window.incData = {json.dumps(incidents_data)};
         </script>
     """))
 
-    for inc in incidents_list:
-        folium.Marker(
-            [inc.lat, inc.lon],
-            popup=f"{inc.title}: {inc.description}",
-            icon=folium.Icon(color='red', icon='fire', prefix='fa')
-        ).add_to(m)
-
-    return render_template('index.html', incidents=incidents_list, users=all_users,
+    return render_template('index.html', incidents=incidents, users=users,
                            map_html=m._repr_html_(), user=session['username'], role=session.get('role'))
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        user = User.query.filter_by(username=request.form['username'], password=request.form['password']).first()
-        if user:
-            session['user_id'] = user.id
-            session['username'] = user.username
-            session['role'] = user.role
-            return redirect(url_for('index'))
-    return render_template('login.html')
-
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        role = 'admin' if User.query.count() == 0 else 'user'
-        new_user = User(username=request.form['username'], password=request.form['password'], role=role)
-        db.session.add(new_user)
-        db.session.commit()
-        return redirect(url_for('login'))
-    return render_template('register.html')
 
 
 @app.route('/promote/<int:user_id>')
@@ -86,6 +71,26 @@ def add_incident():
     db.session.add(new_inc)
     db.session.commit()
     return redirect(url_for('index'))
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        user = User.query.filter_by(username=request.form['username'], password=request.form['password']).first()
+        if user:
+            session['user_id'], session['username'], session['role'] = user.id, user.username, user.role
+            return redirect(url_for('index'))
+    return render_template('login.html')
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        role = 'admin' if User.query.count() == 0 else 'user'
+        db.session.add(User(username=request.form['username'], password=request.form['password'], role=role))
+        db.session.commit()
+        return redirect(url_for('login'))
+    return render_template('register.html')
 
 
 @app.route('/logout')

@@ -2,6 +2,7 @@
 
 :root {
     --bg-main: #020617;
+    --sidebar-bg: rgba(15, 23, 42, 0.85);
     --card-bg: #1e293b;
     --text: #f1f5f9;
     --primary-red: #dc2626;
@@ -10,26 +11,26 @@
 
 [data-theme="light"] {
     --bg-main: #f8fafc;
+    --sidebar-bg: rgba(255, 255, 255, 0.85);
     --card-bg: #ffffff;
     --text: #0f172a;
     --border: #e2e8f0;
 }
 
-body, html { margin: 0; height: 100%; font-family: 'Inter', sans-serif; background: var(--bg-main); color: var(--text); }
+body, html { margin: 0; height: 100%; font-family: 'Inter', sans-serif; background: var(--bg-main); color: var(--text); overflow: hidden; }
 
+#map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
-.auth-wrapper {
-    display: flex; justify-content: center; align-items: center; height: 100vh;
-}
+.auth-wrapper { display: flex; justify-content: center; align-items: center; height: 100vh; background: var(--bg-main); }
 .auth-box {
     width: 380px; padding: 40px; background: var(--card-bg);
-    border-radius: 20px; box-shadow: 0 20px 25px rgba(0,0,0,0.3);
-    border: 1px solid var(--border); text-align: center;
+    border-radius: 24px; box-shadow: 0 20px 25px rgba(0,0,0,0.2);
+    border: 1px solid var(--border); text-align: center; z-index: 2;
 }
 
 #sidebar {
     position: absolute; top: 20px; left: 20px; bottom: 20px; width: 300px;
-    background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px);
+    background: var(--sidebar-bg); backdrop-filter: blur(12px);
     border-radius: 24px; border: 1px solid var(--border);
     z-index: 1000; display: flex; flex-direction: column; padding: 20px;
 }
@@ -42,20 +43,24 @@ input, select {
 
 .btn-red {
     width: 100%; padding: 12px; background: var(--primary-red);
-    color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;
+    color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s;
 }
 
-#map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+.incident-card {
+    background: var(--card-bg); padding: 12px; border-radius: 12px;
+    margin-bottom: 8px; border: 1px solid var(--border); cursor: pointer; transition: 0.2s;
+}
+.incident-card:hover { border-color: var(--primary-red); }
 
-.bottom-controls { margin-top: auto; display: flex; align-items: center; }
+.bottom-controls { margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
 .theme-btn {
     cursor: pointer; background: var(--card-bg); border: 1px solid var(--border);
     color: var(--text); width: 40px; height: 40px; border-radius: 10px;
 }
 
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.2); opacity: 0.7; }
-    100% { transform: scale(1); opacity: 1; }
+@keyframes marker-pulse {
+    0% { transform: scale(1); filter: drop-shadow(0 0 0px red); }
+    50% { transform: scale(1.15); filter: drop-shadow(0 0 8px red); }
+    100% { transform: scale(1); filter: drop-shadow(0 0 0px red); }
 }
-.leaflet-marker-icon { animation: pulse 2s infinite; }
+.leaflet-marker-icon { animation: marker-pulse 2s infinite ease-in-out; }

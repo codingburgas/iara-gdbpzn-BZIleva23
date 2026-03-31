@@ -2,60 +2,84 @@
 <html lang="bg" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <title>ГДПБЗН | Dashboard</title>
+    <title>PHOENIX OPS | Command Center</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div id="sidebar">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <span style="font-weight: 600;"><i class="fas fa-user-shield"></i> {{ user }}</span>
-            <a href="{{ url_for('logout') }}" style="color: #94a3b8;"><i class="fas fa-power-off"></i></a>
+            <div>
+                <span style="font-weight: 600; display: block;">{{ user }}</span>
+                <small style="color: var(--primary-red); text-transform: uppercase; font-size: 10px;">{{ role }}</small>
+            </div>
+            <a href="{{ url_for('logout') }}" style="color: #ef4444;"><i class="fas fa-power-off"></i></a>
         </div>
 
-        <button class="btn-red" onclick="document.getElementById('addForm').style.display='block'">+ НОВ СИГНАЛ</button>
-
-        <div id="addForm" style="display:none; margin-top:10px;">
+        {% if role in ['admin', 'firefighter'] %}
+        <button class="btn-red" onclick="toggleDiv('addForm')">+ НОВ СИГНАЛ</button>
+        <div id="addForm" style="display:none; margin-top:10px;" class="glass-panel">
             <form action="{{ url_for('add_incident') }}" method="POST">
-                <select name="title">
-                    <option value="Пожар">Пожар</option>
-                    <option value="ПТП">ПТП</option>
-                </select>
-                <input type="number" step="any" name="lat" placeholder="Lat" required>
-                <input type="number" step="any" name="lon" placeholder="Lon" required>
-                <button type="submit" class="btn-red" style="background:#10b981;">ДОБАВИ</button>
+                <select name="title"><option value="Пожар">🔥 Пожар</option><option value="ПТП">🚗 ПТП</option></select>
+                <input type="text" name="description" placeholder="Описание">
+                <div style="display: flex; gap: 5px;"><input type="number" step="any" name="lat" placeholder="Lat"><input type="number" step="any" name="lon" placeholder="Lon"></div>
+                <button type="submit" class="btn-red" style="background: #10b981;">ИЗПРАТИ</button>
             </form>
         </div>
+        {% endif %}
 
         <div style="overflow-y: auto; flex: 1; margin-top: 20px;">
+            <p style="font-size: 11px; opacity: 0.5;">АКТИВНИ СИГНАЛИ</p>
             {% for inc in incidents %}
-            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 10px; margin-bottom: 8px;">
-                <strong>{{ inc.title }}</strong>
+            <div class="incident-card" onclick="zoomTo({{ inc.lat }}, {{ inc.lon }})">
+                <strong>{{ inc.title }}</strong><br><small>{{ inc.description }}</small>
             </div>
             {% endfor %}
         </div>
 
         <div class="bottom-controls">
-            <button class="theme-btn" onclick="toggleTheme()">
-                <i id="theme-icon" class="fas fa-sun"></i>
-            </button>
+            <button class="theme-btn" onclick="updateTheme()"><i id="theme-icon" class="fas fa-sun"></i></button>
         </div>
     </div>
 
     <div id="map">{{ map_html|safe }}</div>
 
     <script>
-        function toggleTheme() {
-            const html = document.documentElement;
+        function toggleDiv(id) {
+            let el = document.getElementById(id);
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function zoomTo(lat, lon) {
+            window.mapInstance.flyTo([lat, lon], 14, { animate: true, duration: 1.5 });
+        }
+
+        function updateTheme() {
+            const h = document.documentElement;
+            const target = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            h.setAttribute('data-theme', target);
+            localStorage.setItem('t', target);
+            applyMapTheme(target);
+        }
+
+        function applyMapTheme(theme) {
             const icon = document.getElementById('theme-icon');
-            if (html.getAttribute('data-theme') === 'dark') {
-                html.setAttribute('data-theme', 'light');
+            if (theme === 'light') {
+                window.mapInstance.removeLayer(window.layers.dark);
+                window.mapInstance.addLayer(window.layers.light);
                 icon.className = 'fas fa-moon';
             } else {
-                html.setAttribute('data-theme', 'dark');
+                window.mapInstance.removeLayer(window.layers.light);
+                window.mapInstance.addLayer(window.layers.dark);
                 icon.className = 'fas fa-sun';
             }
         }
+
+        window.onload = () => {
+            const saved = localStorage.getItem('t') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            setTimeout(() => applyMapTheme(saved), 300);
+        };
     </script>
 </body>
 </html>

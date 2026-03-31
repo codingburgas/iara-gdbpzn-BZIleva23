@@ -17,9 +17,8 @@ def index():
         return redirect(url_for('login'))
 
     incidents_list = Incident.query.order_by(Incident.timestamp.desc()).all()
-    # Проверка за привилегии (admin или firefighter от твоята БД) [cite: 80]
     is_privileged = session.get('role') in ['admin', 'firefighter']
-    all_users = User.query.all() if session.get('role') == 'admin' else []
+    all_users = User.query.all() if is_privileged else []
 
     m = folium.Map(location=[42.7, 24.5], zoom_start=7, tiles=None, zoom_control=False)
 
@@ -30,7 +29,8 @@ def index():
     m.get_root().html.add_child(folium.Element(f"""
         <script>
             window.mapInstance = {map_id};
-            window.layers = {{ "dark": {dark.get_name()}, "light": {light.get_name()} }};
+            window.darkLayer = {dark.get_name()};
+            window.lightLayer = {light.get_name()};
         </script>
     """))
 
@@ -68,15 +68,21 @@ def register():
     return render_template('register.html')
 
 
+@app.route('/promote/<int:user_id>')
+def promote(user_id):
+    if session.get('role') not in ['admin', 'firefighter']: abort(403)
+    u = User.query.get(user_id)
+    if u:
+        u.role = 'firefighter'
+        db.session.commit()
+    return redirect(url_for('index'))
+
+
 @app.route('/add_incident', methods=['POST'])
 def add_incident():
     if session.get('role') not in ['admin', 'firefighter']: abort(403)
-    new_inc = Incident(
-        title=request.form.get('title'),
-        description=request.form.get('description'),
-        lat=float(request.form.get('lat')),
-        lon=float(request.form.get('lon'))
-    )
+    new_inc = Incident(title=request.form.get('title'), description=request.form.get('description'),
+                       lat=float(request.form.get('lat')), lon=float(request.form.get('lon')))
     db.session.add(new_inc)
     db.session.commit()
     return redirect(url_for('index'))

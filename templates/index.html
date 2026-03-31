@@ -11,25 +11,38 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div>
                 <span style="font-weight: 600; display: block;">{{ user }}</span>
-                <small style="color: var(--primary-red); text-transform: uppercase; font-size: 10px;">{{ role }}</small>
+                <small style="color: #ef4444; text-transform: uppercase; font-size: 10px;">{{ role }}</small>
             </div>
             <a href="{{ url_for('logout') }}" style="color: #ef4444;"><i class="fas fa-power-off"></i></a>
         </div>
 
         {% if role in ['admin', 'firefighter'] %}
-        <button class="btn-red" onclick="toggleDiv('addForm')">+ НОВ СИГНАЛ</button>
-        <div id="addForm" style="display:none; margin-top:10px;" class="glass-panel">
+        <button class="btn-red" onclick="toggle('addForm')">+ НОВ СИГНАЛ</button>
+        <div id="addForm" style="display:none; margin-top:10px;">
             <form action="{{ url_for('add_incident') }}" method="POST">
-                <select name="title"><option value="Пожар">🔥 Пожар</option><option value="ПТП">🚗 ПТП</option></select>
+                <input type="text" name="title" placeholder="Тип инцидент" required>
                 <input type="text" name="description" placeholder="Описание">
-                <div style="display: flex; gap: 5px;"><input type="number" step="any" name="lat" placeholder="Lat"><input type="number" step="any" name="lon" placeholder="Lon"></div>
-                <button type="submit" class="btn-red" style="background: #10b981;">ИЗПРАТИ</button>
+                <input type="number" step="any" name="lat" placeholder="Ширина (Lat)" required>
+                <input type="number" step="any" name="lon" placeholder="Дължина (Lon)" required>
+                <button type="submit" class="btn-red" style="background: #10b981; margin-top:5px;">ЗАПИШИ</button>
             </form>
+        </div>
+
+        <button class="btn-red" style="background:#334155; margin-top:10px;" onclick="toggle('userList')">ПОТРЕБИТЕЛИ</button>
+        <div id="userList" style="display:none; margin-top:10px; background: rgba(0,0,0,0.2); padding:10px; border-radius:10px;">
+            {% for u in users %}
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:8px;">
+                <span>{{ u.username }}</span>
+                {% if u.role == 'user' %}
+                <a href="{{ url_for('promote', user_id=u.id) }}" style="color:#10b981; text-decoration:none;">Promote</a>
+                {% endif %}
+            </div>
+            {% endfor %}
         </div>
         {% endif %}
 
         <div style="overflow-y: auto; flex: 1; margin-top: 20px;">
-            <p style="font-size: 11px; opacity: 0.5;">АКТИВНИ СИГНАЛИ</p>
+            <p style="font-size: 11px; opacity: 0.5;">LIVE FEED</p>
             {% for inc in incidents %}
             <div class="incident-card" onclick="zoomTo({{ inc.lat }}, {{ inc.lon }})">
                 <strong>{{ inc.title }}</strong><br><small>{{ inc.description }}</small>
@@ -38,48 +51,48 @@
         </div>
 
         <div class="bottom-controls">
-            <button class="theme-btn" onclick="updateTheme()"><i id="theme-icon" class="fas fa-sun"></i></button>
+            <button class="theme-btn" onclick="toggleTheme()"><i id="theme-icon" class="fas fa-sun"></i></button>
         </div>
     </div>
 
     <div id="map">{{ map_html|safe }}</div>
 
     <script>
-        function toggleDiv(id) {
-            let el = document.getElementById(id);
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        function toggle(id) {
+            let e = document.getElementById(id);
+            e.style.display = e.style.display === 'none' ? 'block' : 'none';
         }
 
         function zoomTo(lat, lon) {
-            window.mapInstance.flyTo([lat, lon], 14, { animate: true, duration: 1.5 });
+            window.mapInstance.flyTo([lat, lon], 14, {animate: true, duration: 1.5});
         }
 
-        function updateTheme() {
+        function toggleTheme() {
             const h = document.documentElement;
             const target = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
             h.setAttribute('data-theme', target);
-            localStorage.setItem('t', target);
-            applyMapTheme(target);
+            localStorage.setItem('theme', target);
+            applyMap(target);
         }
 
-        function applyMapTheme(theme) {
+        function applyMap(theme) {
             const icon = document.getElementById('theme-icon');
             if (theme === 'light') {
-                window.mapInstance.removeLayer(window.layers.dark);
-                window.mapInstance.addLayer(window.layers.light);
+                window.mapInstance.removeLayer(window.darkLayer);
+                window.mapInstance.addLayer(window.lightLayer);
                 icon.className = 'fas fa-moon';
             } else {
-                window.mapInstance.removeLayer(window.layers.light);
-                window.mapInstance.addLayer(window.layers.dark);
+                window.mapInstance.removeLayer(window.lightLayer);
+                window.mapInstance.addLayer(window.darkLayer);
                 icon.className = 'fas fa-sun';
             }
         }
 
-        window.onload = () => {
-            const saved = localStorage.getItem('t') || 'dark';
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', saved);
-            setTimeout(() => applyMapTheme(saved), 300);
-        };
+            setTimeout(() => applyMap(saved), 500);
+        });
     </script>
 </body>
 </html>

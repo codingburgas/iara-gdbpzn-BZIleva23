@@ -1,119 +1,72 @@
 <!DOCTYPE html>
-<html lang="bg" data-theme="dark">
+<html lang="bg">
 <head>
-    <meta charset="UTF-8">
-    <title>PHOENIX COMMAND</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    <style>
-        :root { --red: #ff3e3e; --bg: #0d1117; --sidebar: rgba(22, 27, 34, 0.96); --text: #c9d1d9; }
-        [data-theme="light"] { --bg: #ffffff; --sidebar: rgba(246, 248, 250, 0.96); --text: #24292f; }
-
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
-
-        #sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 360px; background: var(--sidebar);
-                    backdrop-filter: blur(20px); z-index: 1000; border-right: 1px solid rgba(255,255,255,0.1);
-                    display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
-
-        .search-box { width: 100%; padding: 12px 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
-                      background: rgba(0,0,0,0.2); color: white; font-size: 14px; margin-bottom: 20px; outline: none; }
-        .search-box:focus { border-color: var(--red); }
-
-        .glass-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
-                      border-radius: 12px; padding: 15px; margin-bottom: 10px; cursor: pointer; transition: 0.3s; }
-        .glass-item:hover { background: rgba(255, 62, 62, 0.1); transform: translateX(5px); }
-
-        .btn { border: none; border-radius: 8px; padding: 12px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; }
-        .btn-red { background: var(--red); color: white; margin-bottom: 10px; }
-        .btn-red:hover { opacity: 0.8; transform: translateY(-2px); }
-
-        #map { position: absolute; left: 360px; right: 0; top: 0; bottom: 0; }
-
-        .admin-panel { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; margin-bottom: 15px; display: none; }
-    </style>
 </head>
 <body>
-
     <div id="sidebar">
-        <h2 style="color: var(--red); margin-bottom: 5px;"><i class="fas fa-fire"></i> PHOENIX</h2>
-        <p style="font-size: 11px; opacity: 0.6; margin-bottom: 20px;">ОПЕРАТИВЕН ДЕЖУРЕН: {{ user }}</p>
-
+        <h2 style="color: var(--primary);"><i class="fas fa-fire"></i> PHOENIX</h2>
+        <p style="font-size: 11px; opacity: 0.6;">ОПЕРАТИВЕН ДЕЖУРЕН: {{ user }}</p>
         <input type="text" id="smartSearch" class="search-box" placeholder="Търси" oninput="runSmartSearch()">
 
         {% if role in ['admin', 'firefighter'] %}
         <button class="btn btn-red" onclick="toggle('addForm')"><i class="fas fa-plus"></i> НОВ СИГНАЛ</button>
         <div id="addForm" class="admin-panel">
             <form action="{{ url_for('add_incident') }}" method="POST">
-                <input type="text" name="title" placeholder="Тип (напр. Наводнение)" class="search-box" style="margin-bottom:8px" required>
-                <input type="text" name="description" placeholder="Описание" class="search-box" style="margin-bottom:8px">
+                <input type="text" name="title" placeholder="Тип (напр. Наводнение)" required>
+                <input type="text" name="description" placeholder="Описание">
                 <div style="display:flex; gap:5px;">
-                    <input type="number" step="any" name="lat" placeholder="Lat" class="search-box">
-                    <input type="number" step="any" name="lon" placeholder="Lon" class="search-box">
+                    <input type="number" step="any" name="lat" placeholder="Lat">
+                    <input type="number" step="any" name="lon" placeholder="Lon">
                 </div>
                 <button type="submit" class="btn btn-red" style="background:#238636">АКТИВИРАЙ</button>
             </form>
         </div>
-
-        <button class="btn btn-red" style="background:#30363d" onclick="toggle('userList')"><i class="fas fa-users-cog"></i> АДМИНИСТРАЦИЯ</button>
-        <div id="userList" class="admin-panel" style="max-height: 150px; overflow-y: auto;">
-            {% for u in users %}
-            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:3px;">
-                <span>{{ u.username }}</span>
-                {% if u.role == 'user' %}<a href="{{ url_for('promote', user_id=u.id) }}" style="color:#238636; text-decoration:none;">PROMOTE</a>{% endif %}
-            </div>
-            {% endfor %}
-        </div>
         {% endif %}
 
-        <div id="incidentFeed" style="flex:1; overflow-y:auto; margin-top:10px;">
+        <div id="incidentFeed" style="flex:1; overflow-y:auto;">
             {% for inc in incidents %}
             <div class="glass-item" onclick="zoomTo({{ inc.lat }}, {{ inc.lon }}, '{{ inc.id }}')">
-                <strong class="inc-t">{{ inc.title }}</strong>
-                <p style="font-size:12px; margin:5px 0; opacity:0.7;">{{ inc.description }}</p>
+                <strong>{{ inc.title }}</strong>
+                <p>{{ inc.description }}</p>
             </div>
             {% endfor %}
         </div>
 
         <div style="display:flex; gap:10px; margin-top:15px;">
-            <button class="btn btn-red" style="background:#30363d" onclick="toggleT()"><i id="ti" class="fas fa-sun"></i></button>
-            <a href="{{ url_for('logout') }}" class="btn btn-red" style="background:#30363d; text-align:center; text-decoration:none;"><i class="fas fa-power-off"></i></a>
+            <button class="btn btn-red" onclick="toggleT()"><i id="ti" class="fas fa-sun"></i></button>
+            <a href="{{ url_for('logout') }}" class="btn btn-red"><i class="fas fa-power-off"></i></a>
         </div>
     </div>
 
     <div id="map">{{ map_html|safe }}</div>
-
     <script>
         function toggle(id) {
             let e = document.getElementById(id);
             e.style.display = e.style.display === 'none' ? 'block' : 'none';
         }
 
-        // ИНТЕЛИГЕНТНО ТЪРСЕНЕ И ЗУУМ
         function runSmartSearch() {
             let query = document.getElementById('smartSearch').value.toLowerCase();
-            if(query.length < 2) return;
+            if (query.length < 2) return;
 
-            // Намираме инцидента в масива
             let match = window.incData.find(i => i.title.toLowerCase().includes(query));
 
-            if(match) {
-                // Извикваме зуум и отваряме попъп
+            if (match) {
                 zoomTo(match.lat, match.lon, match.id);
             }
 
-            // Филтрираме списъка
             document.querySelectorAll('.glass-item').forEach(card => {
                 card.style.display = card.innerText.toLowerCase().includes(query) ? 'block' : 'none';
             });
         }
 
         function zoomTo(lat, lon, id) {
-            // Плавна анимация на картата
             window.mapObj.flyTo([lat, lon], 14, { animate: true, duration: 2 });
 
-            // Намираме конкретния маркер чрез ID и отваряме попъп-а му
             let data = window.incData.find(x => x.id == id);
-            if(data && window[data.marker_id]) {
+            if (data && window[data.marker_id]) {
                 setTimeout(() => window[data.marker_id].openPopup(), 1800);
             }
         }
@@ -125,7 +78,7 @@
             h.setAttribute('data-theme', next);
             localStorage.setItem('theme', next);
 
-            if(next === 'light') {
+            if (next === 'light') {
                 window.mapObj.removeLayer(window.darkLayer);
                 window.mapObj.addLayer(window.lightLayer);
                 document.getElementById('ti').className = 'fas fa-moon';
@@ -140,7 +93,7 @@
             const saved = localStorage.getItem('theme') || 'dark';
             document.documentElement.setAttribute('data-theme', saved);
             setTimeout(() => {
-                if(saved === 'light') {
+                if (saved === 'light') {
                     window.mapObj.removeLayer(window.darkLayer);
                     window.mapObj.addLayer(window.lightLayer);
                 }

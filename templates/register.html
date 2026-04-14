@@ -3,17 +3,15 @@
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="auth-wrapper">
-    <div class="auth-box">
-        <h2 style="color: var(--primary-red); margin-top: 0;">Вход в системата</h2>
+<body class="auth-page">
+    <div class="auth-box" id="register-box" style="width: 300px; text-align: center;">
+        <h2><i class="fas fa-user-plus"></i> РЕГИСТРАЦИЯ</h2>
         <form method="POST">
             <input type="text" name="username" placeholder="Потребител" required>
             <input type="password" name="password" placeholder="Парола" required>
-            <button type="submit" class="toggle-add" style="margin-top: 20px;">ВЛЕЗ</button>
+            <button type="submit" class="btn-red">РЕГИСТРИРАЙ</button>
         </form>
-        <p style="font-size: 14px; color: #64748b; margin-top: 15px;">
-            Нямате акаунт? <a href="{{ url_for('login') }}" style="color: var(--primary-red); text-decoration: none;">Регистрация</a>
-        </p>
+        <p style="font-size:12px; margin-top:15px;">Вече имате акаунт? <a href="{{ url_for('login') }}" style="color: var(--primary)">Влезте</a></p>
     </div>
 </body>
 </html>

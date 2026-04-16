@@ -2,17 +2,30 @@
 <html lang="bg">
 <head>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 </head>
 <body>
+    <!-- Скрит input за текущото произшествие -->
+    <input type="hidden" id="currentIncidentId">
+
+    <!-- ══════════════════════════════════════════════
+         SIDEBAR — Ляв панел
+    ══════════════════════════════════════════════ -->
     <div id="sidebar">
         <h2 style="color: var(--primary);"><i class="fas fa-fire"></i> PHOENIX</h2>
         <p style="font-size: 11px; opacity: 0.6;">ОПЕРАТИВЕН ДЕЖУРЕН: {{ user }}</p>
-        <input type="text" id="smartSearch" class="search-box" placeholder="Търси" oninput="runSmartSearch()">
 
+        <!-- Търсене -->
+        <input type="text" id="smartSearch" class="search-box" placeholder="Търси произшествие..."
+               oninput="runSmartSearch()">
+
+        <!-- Нов сигнал (само за admin / firefighter) -->
         {% if role in ['admin', 'firefighter'] %}
-        <button class="btn btn-red" onclick="toggle('addForm')"><i class="fas fa-plus"></i> НОВ СИГНАЛ</button>
-        <div id="addForm" class="admin-panel">
+        <button class="btn btn-red" onclick="toggle('addForm')">
+            <i class="fas fa-plus"></i> НОВ СИГНАЛ
+        </button>
+        <div id="addForm" class="admin-panel" style="display:none;">
             <form action="{{ url_for('add_incident') }}" method="POST">
                 <input type="text" name="title" placeholder="Тип (напр. Наводнение)" required>
                 <input type="text" name="description" placeholder="Описание">
@@ -20,11 +33,12 @@
                     <input type="number" step="any" name="lat" placeholder="Lat">
                     <input type="number" step="any" name="lon" placeholder="Lon">
                 </div>
-                <button type="submit" class="btn btn-red" style="background:#238636">АКТИВИРАЙ</button>
+                <button type="submit" class="btn btn-red" style="background:#238636;">АКТИВИРАЙ</button>
             </form>
         </div>
         {% endif %}
 
+        <!-- Лента с произшествия -->
         <div id="incidentFeed" style="flex:1; overflow-y:auto;">
             {% for inc in incidents %}
             <div class="glass-item" onclick="zoomTo({{ inc.lat }}, {{ inc.lon }}, '{{ inc.id }}')">
@@ -34,72 +48,89 @@
             {% endfor %}
         </div>
 
+        <!-- Долни бутони -->
         <div style="display:flex; gap:10px; margin-top:15px;">
             <button class="btn btn-red" onclick="toggleT()"><i id="ti" class="fas fa-sun"></i></button>
+            <!-- SOS бутон — само за firefighter -->
+            {% if role == 'firefighter' %}
+            <button class="btn btn-red" style="background:#7c1d1d;" onclick="sendSOS()">
+                <i class="fas fa-exclamation-triangle"></i> SOS
+            </button>
+            {% endif %}
             <a href="{{ url_for('logout') }}" class="btn btn-red"><i class="fas fa-power-off"></i></a>
         </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════
+         КАРТА
+    ══════════════════════════════════════════════ -->
     <div id="map">{{ map_html|safe }}</div>
-    <script>
-        function toggle(id) {
-            let e = document.getElementById(id);
-            e.style.display = e.style.display === 'none' ? 'block' : 'none';
-        }
 
-        function runSmartSearch() {
-            let query = document.getElementById('smartSearch').value.toLowerCase();
-            if (query.length < 2) return;
+    <!-- ══════════════════════════════════════════════
+         ДЕСЕН ПАНЕЛ — Задачи & Чат (показва се при избор на произшествие)
+    ══════════════════════════════════════════════ -->
+    <div id="incidentPanel" style="
+        display:none;
+        position:fixed; right:0; top:0; bottom:0; width:320px;
+        background:var(--sidebar-bg); backdrop-filter:blur(12px);
+        border-left:1px solid var(--border); z-index:1000;
+        padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
 
-            let match = window.incData.find(i => i.title.toLowerCase().includes(query));
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="color:var(--primary); margin:0;"><i class="fas fa-clipboard-list"></i> Оперативен панел</h3>
+            <button onclick="document.getElementById('incidentPanel').style.display='none'"
+                    style="background:none; border:none; color:var(--text); cursor:pointer; font-size:16px;">✕</button>
+        </div>
 
-            if (match) {
-                zoomTo(match.lat, match.lon, match.id);
-            }
+        <!-- ── Задачи ── -->
+        <div>
+            <h4 style="margin:0 0 8px; font-size:13px; opacity:0.7; text-transform:uppercase; letter-spacing:1px;">
+                <i class="fas fa-tasks"></i> Задачи
+            </h4>
+            <div id="taskList" style="margin-bottom:10px;"></div>
 
-            document.querySelectorAll('.glass-item').forEach(card => {
-                card.style.display = card.innerText.toLowerCase().includes(query) ? 'block' : 'none';
-            });
-        }
+            {% if role in ['admin', 'firefighter'] %}
+            <div style="display:flex; gap:6px;">
+                <input type="text" id="newTaskInput" placeholder="Нова задача..." style="flex:1; font-size:12px; padding:8px;">
+                <button class="btn btn-red" style="width:auto; padding:8px 12px;" onclick="addTask()">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            {% endif %}
+        </div>
 
-        function zoomTo(lat, lon, id) {
-            window.mapObj.flyTo([lat, lon], 14, { animate: true, duration: 2 });
+        <!-- ── Чат канал ── -->
+        <div style="flex:1; display:flex; flex-direction:column;">
+            <h4 style="margin:0 0 8px; font-size:13px; opacity:0.7; text-transform:uppercase; letter-spacing:1px;">
+                <i class="fas fa-comments"></i> Чат канал
+            </h4>
 
-            let data = window.incData.find(x => x.id == id);
-            if (data && window[data.marker_id]) {
-                setTimeout(() => window[data.marker_id].openPopup(), 1800);
-            }
-        }
+            <!-- Шаблонни съобщения -->
+            <div id="templateButtons" style="display:flex; flex-wrap:wrap; gap:2px; margin-bottom:8px;"></div>
 
-        function toggleT() {
-            const h = document.documentElement;
-            const isD = h.getAttribute('data-theme') === 'dark';
-            const next = isD ? 'light' : 'dark';
-            h.setAttribute('data-theme', next);
-            localStorage.setItem('theme', next);
+            <!-- Съобщения -->
+            <div id="chatMessages" style="
+                flex:1; min-height:160px; max-height:260px;
+                overflow-y:auto; background:rgba(0,0,0,0.2);
+                border-radius:8px; padding:10px; margin-bottom:8px;
+                font-size:12px;"></div>
 
-            if (next === 'light') {
-                window.mapObj.removeLayer(window.darkLayer);
-                window.mapObj.addLayer(window.lightLayer);
-                document.getElementById('ti').className = 'fas fa-moon';
-            } else {
-                window.mapObj.removeLayer(window.lightLayer);
-                window.mapObj.addLayer(window.darkLayer);
-                document.getElementById('ti').className = 'fas fa-sun';
-            }
-        }
+            <!-- Въвеждане на съобщение -->
+            <div style="display:flex; gap:6px;">
+                <input type="text" id="chatInput" placeholder="Напиши съобщение..."
+                       style="flex:1; font-size:12px; padding:8px;"
+                       onkeydown="if(event.key==='Enter') sendChatMessage(this.value)">
+                <button class="btn btn-red" style="width:auto; padding:8px 12px;"
+                        onclick="sendChatMessage(document.getElementById('chatInput').value)">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
 
-        window.onload = () => {
-            const saved = localStorage.getItem('theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', saved);
-            setTimeout(() => {
-                if (saved === 'light') {
-                    window.mapObj.removeLayer(window.darkLayer);
-                    window.mapObj.addLayer(window.lightLayer);
-                }
-            }, 600);
-            anime({ targets: '#sidebar', translateX: [-360, 0], duration: 1000, easing: 'easeOutExpo' });
-        };
-    </script>
+    <!-- ══════════════════════════════════════════════
+         JS — само един ред, всичко в main.js
+    ══════════════════════════════════════════════ -->
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>

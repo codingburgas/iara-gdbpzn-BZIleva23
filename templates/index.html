@@ -9,33 +9,29 @@
 </head>
 <body>
 
-<!-- ════════════════════════════════════════════════════════
-     ЛЯВ SIDEBAR
-════════════════════════════════════════════════════════ -->
+<!-- ════════════ ЛЯВ SIDEBAR ════════════ -->
 <div id="sidebar">
-
     <div class="sidebar-header">
         <h2><i class="fas fa-fire"></i> PHOENIX</h2>
-        <p class="subtext">ОПЕРАТИВЕН ДЕЖУРЕН: {{ user }}
+        <p class="subtext">
+            {{ user }}
             <span class="role-badge role-{{ role }}">{{ role }}</span>
         </p>
     </div>
 
-    <!-- Търсене -->
     <input type="text" id="smartSearch" class="search-box"
            placeholder="🔍 Търси произшествие..." oninput="runSmartSearch()">
 
-    <!-- Нов сигнал -->
     {% if role in ['admin', 'firefighter'] %}
     <button class="btn btn-red" onclick="toggle('addForm')">
         <i class="fas fa-plus"></i> НОВ СИГНАЛ
     </button>
     <div id="addForm" style="display:none;">
         <form action="{{ url_for('add_incident') }}" method="POST" class="add-form">
-            <input type="text" name="title" placeholder="Тип (напр. Горски пожар)" required>
-            <input type="text" name="description" placeholder="Описание">
+            <input type="text"   name="title"       placeholder="Тип (напр. Горски пожар)" required>
+            <input type="text"   name="description" placeholder="Описание">
             <div class="row-2">
-                <input type="number" step="any" name="lat" placeholder="Latitude" required>
+                <input type="number" step="any" name="lat" placeholder="Latitude"  required>
                 <input type="number" step="any" name="lon" placeholder="Longitude" required>
             </div>
             <button type="submit" class="btn btn-green">
@@ -45,32 +41,35 @@
     </div>
     {% endif %}
 
-    <!-- Списък с произшествия -->
-    <div class="section-label">АКТИВНИ ПРОИЗШЕСТВИЯ</div>
+    <div class="section-label">ПРОИЗШЕСТВИЯ</div>
     <div id="incidentFeed">
         {% for inc in incidents %}
-        <div class="glass-item {% if inc.status == 'resolved' %}resolved{% endif %}"
+        <div class="glass-item {% if inc.status=='resolved' %}resolved{% endif %}"
              data-inc-id="{{ inc.id }}"
              onclick="zoomTo({{ inc.lat }}, {{ inc.lon }}, {{ inc.id }})">
             <div class="inc-header">
                 <strong>{{ inc.title }}</strong>
-                <span class="inc-status {{ inc.status }}">{{ 'Активно' if inc.status == 'active' else 'Приключило' }}</span>
+                <span class="inc-badge {{ inc.status }}">
+                    {{ 'Активно' if inc.status == 'active' else 'Приключило' }}
+                </span>
             </div>
             <p>{{ inc.description or '—' }}</p>
-            <small class="inc-time">{{ inc.timestamp.strftime('%d.%m.%Y %H:%M') }}</small>
+            <small class="inc-time">{{ inc.timestamp.strftime('%d.%m %H:%M') }}</small>
         </div>
         {% else %}
-        <p class="empty-msg">Няма регистрирани произшествия</p>
+        <p class="empty-hint">Няма произшествия</p>
         {% endfor %}
     </div>
 
-    <!-- Долни бутони -->
     <div class="sidebar-footer">
-        <button class="btn btn-icon" onclick="toggleT()" title="Смяна на тема">
+        <button class="btn btn-icon" onclick="toggleT()" title="Тема">
             <i id="ti" class="fas fa-sun"></i>
         </button>
-        <button class="btn btn-icon" onclick="toggle('teamsPanel')" title="Екипи">
+        <button class="btn btn-icon" onclick="toggle('teamsPanel'); loadMembers();" title="Екипи">
             <i class="fas fa-users"></i>
+        </button>
+        <button class="btn btn-icon" onclick="toggle('vehiclesPanel'); loadVehicles();" title="Автомобили">
+            <i class="fas fa-truck"></i>
         </button>
         {% if role == 'admin' %}
         <button class="btn btn-icon" onclick="toggle('adminPanel')" title="Администрация">
@@ -88,16 +87,11 @@
     </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════
-     КАРТА
-════════════════════════════════════════════════════════ -->
+<!-- ════════════ КАРТА ════════════ -->
 <div id="map">{{ map_html|safe }}</div>
 
-<!-- ════════════════════════════════════════════════════════
-     ДЕСЕН ПАНЕЛ — Задачи & Чат
-     Не се затваря при кликване вътре!
-════════════════════════════════════════════════════════ -->
-<div id="incidentPanel" onclick="event.stopPropagation()">
+<!-- ════════════ ДЕСЕН ПАНЕЛ — Задачи & Чат ════════════ -->
+<div id="incidentPanel" style="display:none;" onclick="event.stopPropagation()">
     <div class="panel-header">
         <span><i class="fas fa-clipboard-list"></i> Оперативен панел</span>
         <button class="close-btn" onclick="hidePanel()">✕</button>
@@ -105,84 +99,99 @@
 
     <!-- Задачи -->
     <div class="panel-section">
-        <div class="section-label">
-            <i class="fas fa-tasks"></i> ЗАДАЧИ
-        </div>
+        <div class="section-label"><i class="fas fa-tasks"></i> ЗАДАЧИ</div>
         <div id="taskList" class="task-list"></div>
 
         {% if role in ['admin', 'firefighter'] %}
-        <div class="add-task-row">
-            <select id="taskType" class="small-select">
+        <div class="add-row">
+            <select id="taskType" class="xs-select">
                 <option value="operative">🔥 Оперативна</option>
                 <option value="logistics">🚛 Логистична</option>
                 <option value="admin">📋 Административна</option>
             </select>
             <input type="text" id="newTaskInput" placeholder="Нова задача..."
                    onkeydown="if(event.key==='Enter') addTask()">
-            <button class="btn-small btn-green" onclick="addTask()">+</button>
+            <button class="btn-xs btn-green" onclick="addTask()">+</button>
         </div>
         {% endif %}
     </div>
 
     <!-- Чат -->
-    <div class="panel-section chat-section">
-        <div class="section-label">
-            <i class="fas fa-comments"></i> ЧАТ КАНАЛ
-        </div>
-        <div id="templateButtons" class="template-grid"></div>
+    <div class="panel-section" style="flex:1; min-height:0; display:flex; flex-direction:column; gap:6px;">
+        <div class="section-label"><i class="fas fa-comments"></i> ЧАТ КАНАЛ</div>
+        <div id="templateButtons" class="tmpl-grid"></div>
         <div id="chatMessages" class="chat-box"></div>
-        <div class="chat-input-row">
+        <div class="add-row">
             <input type="text" id="chatInput" placeholder="Напиши съобщение..."
-                   onkeydown="if(event.key==='Enter') sendChatMessage()">
-            <button class="btn-small btn-red" onclick="sendChatMessage()">
+                   onkeydown="if(event.key==='Enter') sendMsg()">
+            <button class="btn-xs btn-red" onclick="sendMsg()">
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
     </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════
-     ПАНЕЛ — Наличност на екипи
-════════════════════════════════════════════════════════ -->
+<!-- ════════════ ПАНЕЛ — Екипи ════════════ -->
 <div id="teamsPanel" style="display:none;" onclick="event.stopPropagation()">
     <div class="panel-header">
         <span><i class="fas fa-users"></i> Наличност на екипи</span>
         <button class="close-btn" onclick="toggle('teamsPanel')">✕</button>
     </div>
-    <div id="memberSummary" class="member-summary">Зарежда...</div>
-    <div id="membersList" class="members-list"></div>
+    <div id="memberSummary" class="summary-bar">—</div>
+    <div id="membersList" class="scroll-list"></div>
 
     {% if role == 'admin' %}
-    <div class="panel-section">
+    <div class="panel-section" style="margin-top:8px;">
         <div class="section-label">ДОБАВИ СЛУЖИТЕЛ</div>
-        <div class="add-task-row" style="flex-wrap:wrap; gap:6px;">
-            <input type="text" id="newMemberName" placeholder="Три имена">
-            <input type="text" id="newMemberVehicle" placeholder="Автомобил (напр. ПА-01)">
-            <button class="btn-small btn-green" onclick="addMember()">+ Добави</button>
+        <div class="add-row" style="flex-wrap:wrap;">
+            <input type="text" id="newMemberName" placeholder="Три имена" style="flex:1; min-width:120px;">
+            <select id="newMemberVehicle" class="xs-select" style="flex:1; min-width:120px;">
+                <option value="">— Автомобил —</option>
+                {% for v in vehicles %}
+                <option value="{{ v.id }}">{{ v.call_sign }} ({{ v.region }})</option>
+                {% endfor %}
+            </select>
+            <button class="btn-xs btn-green" onclick="addMember()">+ Добави</button>
         </div>
     </div>
     {% endif %}
 </div>
 
-<!-- ════════════════════════════════════════════════════════
-     ПАНЕЛ — Администрация (само admin)
-════════════════════════════════════════════════════════ -->
+<!-- ════════════ ПАНЕЛ — Пожарни коли ════════════ -->
+<div id="vehiclesPanel" style="display:none;" onclick="event.stopPropagation()">
+    <div class="panel-header">
+        <span><i class="fas fa-truck"></i> Пожарни автомобили</span>
+        <button class="close-btn" onclick="toggle('vehiclesPanel')">✕</button>
+    </div>
+    <div class="add-row" style="margin-bottom:8px;">
+        <select id="vehicleRegionFilter" class="xs-select" style="flex:1;"
+                onchange="loadVehicles(this.value)">
+            <option value="">— Всички региони —</option>
+            {% for v in vehicles|groupby('region') %}
+            <option value="{{ v.grouper }}">{{ v.grouper }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div id="vehiclesList" class="scroll-list"></div>
+</div>
+
+<!-- ════════════ ПАНЕЛ — Администрация ════════════ -->
 {% if role == 'admin' %}
 <div id="adminPanel" style="display:none;" onclick="event.stopPropagation()">
     <div class="panel-header">
         <span><i class="fas fa-cog"></i> Управление на потребители</span>
         <button class="close-btn" onclick="toggle('adminPanel')">✕</button>
     </div>
-    <div class="users-list">
+    <div class="scroll-list">
         {% for u in users %}
         <div class="user-row">
             <span class="user-name">{{ u.username }}</span>
-            <span id="role-badge-{{ u.id }}" class="role-badge role-{{ u.role }}">{{ u.role }}</span>
-            <select onchange="changeRole({{ u.id }}, this.value)" class="small-select">
-                <option value="">-- смени роля --</option>
-                <option value="admin">Admin</option>
-                <option value="firefighter">Firefighter</option>
-                <option value="user">User</option>
+            <span id="rb-{{ u.id }}" class="role-badge role-{{ u.role }}">{{ u.role }}</span>
+            <select class="xs-select" onchange="changeRole({{ u.id }}, this.value)">
+                <option value="">— смени —</option>
+                <option value="admin">admin</option>
+                <option value="firefighter">firefighter</option>
+                <option value="user">user</option>
             </select>
         </div>
         {% endfor %}
@@ -190,25 +199,6 @@
 </div>
 {% endif %}
 
-<!-- JS — само main.js, нищо inline! -->
 <script src="{{ url_for('static', filename='main.js') }}"></script>
-
-<script>
-// Добави служител (трябва достъп до Flask session)
-async function addMember() {
-    const name = document.getElementById('newMemberName').value.trim();
-    const vehicle = document.getElementById('newMemberVehicle').value.trim();
-    if (!name) return;
-    await fetch('/members/add', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ name, vehicle, status: 'available', shift_active: true })
-    });
-    document.getElementById('newMemberName').value = '';
-    document.getElementById('newMemberVehicle').value = '';
-    loadMembers();
-}
-</script>
-
 </body>
 </html>

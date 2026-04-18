@@ -1,31 +1,23 @@
-<!-- ═══════════ login.html ═══════════ -->
 <!DOCTYPE html>
 <html lang="bg" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <title>PHOENIX — Вход</title>
+    <meta charset="UTF-8"><title>PHOENIX — Вход</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 </head>
 <body class="auth-page">
-    <div class="auth-box" id="login-box">
+    <div class="auth-box" id="lb">
         <h2><i class="fas fa-fire"></i> PHOENIX</h2>
-        {% if error %}
-        <div class="error-msg">{{ error }}</div>
-        {% endif %}
+        {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
         <form method="POST">
-            <input type="text" name="username" placeholder="Потребителско име" required>
-            <input type="password" name="password" placeholder="Парола" required style="margin-top:8px;">
-            <button type="submit" class="btn btn-red" style="margin-top:12px;">
-                <i class="fas fa-sign-in-alt"></i> ВЛИЗАНЕ
-            </button>
+            <input type="text"     name="username" placeholder="Потребителско име" required>
+            <input type="password" name="password" placeholder="Парола" required style="margin-top:7px;">
+            <button type="submit" class="btn btn-red"><i class="fas fa-sign-in-alt"></i> ВЛИЗАНЕ</button>
         </form>
         <p>Нямате акаунт? <a href="{{ url_for('register') }}">Регистрирай се</a></p>
-        <p style="margin-top:4px; font-size:10px; opacity:0.35;">Default: admin / admin123</p>
+        <p class="hint-msg">Default admin: <strong>admin / admin123</strong></p>
     </div>
-    <script>
-        anime({ targets: '#login-box', scale: [0.88, 1], opacity: [0, 1], duration: 900, easing: 'easeOutBack' });
-    </script>
+    <script>anime({targets:'#lb', scale:[.88,1], opacity:[0,1], duration:900, easing:'easeOutBack'});</script>
 </body>
 </html>

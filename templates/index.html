@@ -1,136 +1,214 @@
 <!DOCTYPE html>
-<html lang="bg">
+<html lang="bg" data-theme="dark">
 <head>
+    <meta charset="UTF-8">
+    <title>PHOENIX — Оперативна система</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 </head>
 <body>
-    <!-- Скрит input за текущото произшествие -->
-    <input type="hidden" id="currentIncidentId">
 
-    <!-- ══════════════════════════════════════════════
-         SIDEBAR — Ляв панел
-    ══════════════════════════════════════════════ -->
-    <div id="sidebar">
-        <h2 style="color: var(--primary);"><i class="fas fa-fire"></i> PHOENIX</h2>
-        <p style="font-size: 11px; opacity: 0.6;">ОПЕРАТИВЕН ДЕЖУРЕН: {{ user }}</p>
+<!-- ════════════════════════════════════════════════════════
+     ЛЯВ SIDEBAR
+════════════════════════════════════════════════════════ -->
+<div id="sidebar">
 
-        <!-- Търсене -->
-        <input type="text" id="smartSearch" class="search-box" placeholder="Търси произшествие..."
-               oninput="runSmartSearch()">
+    <div class="sidebar-header">
+        <h2><i class="fas fa-fire"></i> PHOENIX</h2>
+        <p class="subtext">ОПЕРАТИВЕН ДЕЖУРЕН: {{ user }}
+            <span class="role-badge role-{{ role }}">{{ role }}</span>
+        </p>
+    </div>
 
-        <!-- Нов сигнал (само за admin / firefighter) -->
-        {% if role in ['admin', 'firefighter'] %}
-        <button class="btn btn-red" onclick="toggle('addForm')">
-            <i class="fas fa-plus"></i> НОВ СИГНАЛ
+    <!-- Търсене -->
+    <input type="text" id="smartSearch" class="search-box"
+           placeholder="🔍 Търси произшествие..." oninput="runSmartSearch()">
+
+    <!-- Нов сигнал -->
+    {% if role in ['admin', 'firefighter'] %}
+    <button class="btn btn-red" onclick="toggle('addForm')">
+        <i class="fas fa-plus"></i> НОВ СИГНАЛ
+    </button>
+    <div id="addForm" style="display:none;">
+        <form action="{{ url_for('add_incident') }}" method="POST" class="add-form">
+            <input type="text" name="title" placeholder="Тип (напр. Горски пожар)" required>
+            <input type="text" name="description" placeholder="Описание">
+            <div class="row-2">
+                <input type="number" step="any" name="lat" placeholder="Latitude" required>
+                <input type="number" step="any" name="lon" placeholder="Longitude" required>
+            </div>
+            <button type="submit" class="btn btn-green">
+                <i class="fas fa-bolt"></i> АКТИВИРАЙ
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Списък с произшествия -->
+    <div class="section-label">АКТИВНИ ПРОИЗШЕСТВИЯ</div>
+    <div id="incidentFeed">
+        {% for inc in incidents %}
+        <div class="glass-item {% if inc.status == 'resolved' %}resolved{% endif %}"
+             data-inc-id="{{ inc.id }}"
+             onclick="zoomTo({{ inc.lat }}, {{ inc.lon }}, {{ inc.id }})">
+            <div class="inc-header">
+                <strong>{{ inc.title }}</strong>
+                <span class="inc-status {{ inc.status }}">{{ 'Активно' if inc.status == 'active' else 'Приключило' }}</span>
+            </div>
+            <p>{{ inc.description or '—' }}</p>
+            <small class="inc-time">{{ inc.timestamp.strftime('%d.%m.%Y %H:%M') }}</small>
+        </div>
+        {% else %}
+        <p class="empty-msg">Няма регистрирани произшествия</p>
+        {% endfor %}
+    </div>
+
+    <!-- Долни бутони -->
+    <div class="sidebar-footer">
+        <button class="btn btn-icon" onclick="toggleT()" title="Смяна на тема">
+            <i id="ti" class="fas fa-sun"></i>
         </button>
-        <div id="addForm" class="admin-panel" style="display:none;">
-            <form action="{{ url_for('add_incident') }}" method="POST">
-                <input type="text" name="title" placeholder="Тип (напр. Наводнение)" required>
-                <input type="text" name="description" placeholder="Описание">
-                <div style="display:flex; gap:5px;">
-                    <input type="number" step="any" name="lat" placeholder="Lat">
-                    <input type="number" step="any" name="lon" placeholder="Lon">
-                </div>
-                <button type="submit" class="btn btn-red" style="background:#238636;">АКТИВИРАЙ</button>
-            </form>
+        <button class="btn btn-icon" onclick="toggle('teamsPanel')" title="Екипи">
+            <i class="fas fa-users"></i>
+        </button>
+        {% if role == 'admin' %}
+        <button class="btn btn-icon" onclick="toggle('adminPanel')" title="Администрация">
+            <i class="fas fa-cog"></i>
+        </button>
+        {% endif %}
+        {% if role == 'firefighter' %}
+        <button class="btn btn-red btn-icon" onclick="sendSOS()" title="SOS">
+            <i class="fas fa-exclamation-triangle"></i>
+        </button>
+        {% endif %}
+        <a href="{{ url_for('logout') }}" class="btn btn-icon" title="Изход">
+            <i class="fas fa-power-off"></i>
+        </a>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     КАРТА
+════════════════════════════════════════════════════════ -->
+<div id="map">{{ map_html|safe }}</div>
+
+<!-- ════════════════════════════════════════════════════════
+     ДЕСЕН ПАНЕЛ — Задачи & Чат
+     Не се затваря при кликване вътре!
+════════════════════════════════════════════════════════ -->
+<div id="incidentPanel" onclick="event.stopPropagation()">
+    <div class="panel-header">
+        <span><i class="fas fa-clipboard-list"></i> Оперативен панел</span>
+        <button class="close-btn" onclick="hidePanel()">✕</button>
+    </div>
+
+    <!-- Задачи -->
+    <div class="panel-section">
+        <div class="section-label">
+            <i class="fas fa-tasks"></i> ЗАДАЧИ
+        </div>
+        <div id="taskList" class="task-list"></div>
+
+        {% if role in ['admin', 'firefighter'] %}
+        <div class="add-task-row">
+            <select id="taskType" class="small-select">
+                <option value="operative">🔥 Оперативна</option>
+                <option value="logistics">🚛 Логистична</option>
+                <option value="admin">📋 Административна</option>
+            </select>
+            <input type="text" id="newTaskInput" placeholder="Нова задача..."
+                   onkeydown="if(event.key==='Enter') addTask()">
+            <button class="btn-small btn-green" onclick="addTask()">+</button>
         </div>
         {% endif %}
+    </div>
 
-        <!-- Лента с произшествия -->
-        <div id="incidentFeed" style="flex:1; overflow-y:auto;">
-            {% for inc in incidents %}
-            <div class="glass-item" onclick="zoomTo({{ inc.lat }}, {{ inc.lon }}, '{{ inc.id }}')">
-                <strong>{{ inc.title }}</strong>
-                <p>{{ inc.description }}</p>
-            </div>
-            {% endfor %}
+    <!-- Чат -->
+    <div class="panel-section chat-section">
+        <div class="section-label">
+            <i class="fas fa-comments"></i> ЧАТ КАНАЛ
         </div>
-
-        <!-- Долни бутони -->
-        <div style="display:flex; gap:10px; margin-top:15px;">
-            <button class="btn btn-red" onclick="toggleT()"><i id="ti" class="fas fa-sun"></i></button>
-            <!-- SOS бутон — само за firefighter -->
-            {% if role == 'firefighter' %}
-            <button class="btn btn-red" style="background:#7c1d1d;" onclick="sendSOS()">
-                <i class="fas fa-exclamation-triangle"></i> SOS
+        <div id="templateButtons" class="template-grid"></div>
+        <div id="chatMessages" class="chat-box"></div>
+        <div class="chat-input-row">
+            <input type="text" id="chatInput" placeholder="Напиши съобщение..."
+                   onkeydown="if(event.key==='Enter') sendChatMessage()">
+            <button class="btn-small btn-red" onclick="sendChatMessage()">
+                <i class="fas fa-paper-plane"></i>
             </button>
-            {% endif %}
-            <a href="{{ url_for('logout') }}" class="btn btn-red"><i class="fas fa-power-off"></i></a>
         </div>
     </div>
+</div>
 
-    <!-- ══════════════════════════════════════════════
-         КАРТА
-    ══════════════════════════════════════════════ -->
-    <div id="map">{{ map_html|safe }}</div>
+<!-- ════════════════════════════════════════════════════════
+     ПАНЕЛ — Наличност на екипи
+════════════════════════════════════════════════════════ -->
+<div id="teamsPanel" style="display:none;" onclick="event.stopPropagation()">
+    <div class="panel-header">
+        <span><i class="fas fa-users"></i> Наличност на екипи</span>
+        <button class="close-btn" onclick="toggle('teamsPanel')">✕</button>
+    </div>
+    <div id="memberSummary" class="member-summary">Зарежда...</div>
+    <div id="membersList" class="members-list"></div>
 
-    <!-- ══════════════════════════════════════════════
-         ДЕСЕН ПАНЕЛ — Задачи & Чат (показва се при избор на произшествие)
-    ══════════════════════════════════════════════ -->
-    <div id="incidentPanel" style="
-        display:none;
-        position:fixed; right:0; top:0; bottom:0; width:320px;
-        background:var(--sidebar-bg); backdrop-filter:blur(12px);
-        border-left:1px solid var(--border); z-index:1000;
-        padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
-
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="color:var(--primary); margin:0;"><i class="fas fa-clipboard-list"></i> Оперативен панел</h3>
-            <button onclick="document.getElementById('incidentPanel').style.display='none'"
-                    style="background:none; border:none; color:var(--text); cursor:pointer; font-size:16px;">✕</button>
-        </div>
-
-        <!-- ── Задачи ── -->
-        <div>
-            <h4 style="margin:0 0 8px; font-size:13px; opacity:0.7; text-transform:uppercase; letter-spacing:1px;">
-                <i class="fas fa-tasks"></i> Задачи
-            </h4>
-            <div id="taskList" style="margin-bottom:10px;"></div>
-
-            {% if role in ['admin', 'firefighter'] %}
-            <div style="display:flex; gap:6px;">
-                <input type="text" id="newTaskInput" placeholder="Нова задача..." style="flex:1; font-size:12px; padding:8px;">
-                <button class="btn btn-red" style="width:auto; padding:8px 12px;" onclick="addTask()">
-                    <i class="fas fa-plus"></i>
-                </button>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- ── Чат канал ── -->
-        <div style="flex:1; display:flex; flex-direction:column;">
-            <h4 style="margin:0 0 8px; font-size:13px; opacity:0.7; text-transform:uppercase; letter-spacing:1px;">
-                <i class="fas fa-comments"></i> Чат канал
-            </h4>
-
-            <!-- Шаблонни съобщения -->
-            <div id="templateButtons" style="display:flex; flex-wrap:wrap; gap:2px; margin-bottom:8px;"></div>
-
-            <!-- Съобщения -->
-            <div id="chatMessages" style="
-                flex:1; min-height:160px; max-height:260px;
-                overflow-y:auto; background:rgba(0,0,0,0.2);
-                border-radius:8px; padding:10px; margin-bottom:8px;
-                font-size:12px;"></div>
-
-            <!-- Въвеждане на съобщение -->
-            <div style="display:flex; gap:6px;">
-                <input type="text" id="chatInput" placeholder="Напиши съобщение..."
-                       style="flex:1; font-size:12px; padding:8px;"
-                       onkeydown="if(event.key==='Enter') sendChatMessage(this.value)">
-                <button class="btn btn-red" style="width:auto; padding:8px 12px;"
-                        onclick="sendChatMessage(document.getElementById('chatInput').value)">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
+    {% if role == 'admin' %}
+    <div class="panel-section">
+        <div class="section-label">ДОБАВИ СЛУЖИТЕЛ</div>
+        <div class="add-task-row" style="flex-wrap:wrap; gap:6px;">
+            <input type="text" id="newMemberName" placeholder="Три имена">
+            <input type="text" id="newMemberVehicle" placeholder="Автомобил (напр. ПА-01)">
+            <button class="btn-small btn-green" onclick="addMember()">+ Добави</button>
         </div>
     </div>
+    {% endif %}
+</div>
 
-    <!-- ══════════════════════════════════════════════
-         JS — само един ред, всичко в main.js
-    ══════════════════════════════════════════════ -->
-    <script src="{{ url_for('static', filename='main.js') }}"></script>
+<!-- ════════════════════════════════════════════════════════
+     ПАНЕЛ — Администрация (само admin)
+════════════════════════════════════════════════════════ -->
+{% if role == 'admin' %}
+<div id="adminPanel" style="display:none;" onclick="event.stopPropagation()">
+    <div class="panel-header">
+        <span><i class="fas fa-cog"></i> Управление на потребители</span>
+        <button class="close-btn" onclick="toggle('adminPanel')">✕</button>
+    </div>
+    <div class="users-list">
+        {% for u in users %}
+        <div class="user-row">
+            <span class="user-name">{{ u.username }}</span>
+            <span id="role-badge-{{ u.id }}" class="role-badge role-{{ u.role }}">{{ u.role }}</span>
+            <select onchange="changeRole({{ u.id }}, this.value)" class="small-select">
+                <option value="">-- смени роля --</option>
+                <option value="admin">Admin</option>
+                <option value="firefighter">Firefighter</option>
+                <option value="user">User</option>
+            </select>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- JS — само main.js, нищо inline! -->
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+
+<script>
+// Добави служител (трябва достъп до Flask session)
+async function addMember() {
+    const name = document.getElementById('newMemberName').value.trim();
+    const vehicle = document.getElementById('newMemberVehicle').value.trim();
+    if (!name) return;
+    await fetch('/members/add', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name, vehicle, status: 'available', shift_active: true })
+    });
+    document.getElementById('newMemberName').value = '';
+    document.getElementById('newMemberVehicle').value = '';
+    loadMembers();
+}
+</script>
+
 </body>
 </html>

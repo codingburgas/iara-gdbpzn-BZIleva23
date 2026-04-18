@@ -1,21 +1,31 @@
+<!-- ═══════════ login.html ═══════════ -->
 <!DOCTYPE html>
-<html lang="bg">
+<html lang="bg" data-theme="dark">
 <head>
+    <meta charset="UTF-8">
+    <title>PHOENIX — Вход</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 </head>
 <body class="auth-page">
-    <div class="auth-box" id="login-box" style="width: 300px; text-align: center;">
-        <h2><i class="fas fa-lock"></i> ВХОД</h2>
+    <div class="auth-box" id="login-box">
+        <h2><i class="fas fa-fire"></i> PHOENIX</h2>
+        {% if error %}
+        <div class="error-msg">{{ error }}</div>
+        {% endif %}
         <form method="POST">
-            <input type="text" name="username" placeholder="Потребител" required>
-            <input type="password" name="password" placeholder="Парола" required>
-            <button type="submit" class="btn-red">ВЛИЗАНЕ</button>
+            <input type="text" name="username" placeholder="Потребителско име" required>
+            <input type="password" name="password" placeholder="Парола" required style="margin-top:8px;">
+            <button type="submit" class="btn btn-red" style="margin-top:12px;">
+                <i class="fas fa-sign-in-alt"></i> ВЛИЗАНЕ
+            </button>
         </form>
-        <p style="font-size:12px; margin-top:15px;">Нямате акаунт? <a href="{{ url_for('register') }}" style="color: var(--primary)">Регистрирай се</a></p>
+        <p>Нямате акаунт? <a href="{{ url_for('register') }}">Регистрирай се</a></p>
+        <p style="margin-top:4px; font-size:10px; opacity:0.35;">Default: admin / admin123</p>
     </div>
     <script>
-        anime({ targets: '#login-box', scale: [0.9, 1], opacity: [0, 1], duration: 1000, easing: 'easeOutBack' });
+        anime({ targets: '#login-box', scale: [0.88, 1], opacity: [0, 1], duration: 900, easing: 'easeOutBack' });
     </script>
 </body>
 </html>

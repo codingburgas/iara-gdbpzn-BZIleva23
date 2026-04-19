@@ -1,62 +1,210 @@
-# 🛡️Emergency Response HUD
-### *Next-Generation Tactical Geospatial Command & Control Center*
+# 🔥 PHOENIX
+### Оперативна система за управление на произшествия — ГДПБЗН
 
-![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-2.0-000000?style=for-the-badge&logo=flask&logoColor=white)
-![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199903?style=for-the-badge&logo=leaflet&logoColor=white)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-ORM-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white)
+<div align="center">
 
----
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-2.x-000000?style=for-the-badge&logo=flask&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![Folium](https://img.shields.io/badge/Folium-Maps-77B829?style=for-the-badge&logo=leaflet&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)
 
-## ⚡ MISSION CRITICAL FEATURES
+**Уеб-базирана система за оперативно управление на пожарни произшествия,**  
+**координация на екипи и граждански сигнали.**
 
-### 🛰️ Interactive Geospatial HUD
-Built on the **Leaflet.js Engine**, the interface provides a high-fidelity "Dark Matter" tactical map. Every incident is geocoded with surgical precision, ensuring zero-latency situational awareness for **GDBPZN** operations.
-
-### 🎯 Kinetic Auto-Zoom (Fly-To Tech)
-Stop wasting seconds scrolling. Our **Proprietary Fly-To Logic** intercepts click events on incident cards and initiates a smooth 1.5s kinetic glide directly to the target coordinates at Level 14 magnification.
-
-### 💓 Bio-Pulse Visual Alerts
-Using **CSS3 Keyframe Overlays**, markers feature an animated "pulse" effect. This mimics biological urgency, ensuring the operator's focus is immediately drawn to active fire or accident zones.
+</div>
 
 ---
 
-## 🎮 CORE INTERFACE CONTROLS
+## 📋 Описание
 
-| CONTROL | FUNCTION | TECHNICAL LOGIC |
-| :--- | :--- | :--- |
-| **[+ НОВ СИГНАЛ]** | **Tactical Deployment** | Uses JavaScript DOM manipulation to toggle form visibility, preserving 30% more screen real estate for map monitoring. |
-| **[INCIDENT CARD]** | **Auto-Focus Trigger** | Executes `window.mapInstance.flyTo()`. It calculates the vector between the current view and the target for a smooth transition. |
-| **[THEME TOGGLE]** | **Stealth Mode** | Injects CSS root variables into the document head. State is persisted via `localStorage` for 24/7 consistency between Light/Dark modes. |
-| **[LOGOUT]** | **Secure Terminate** | Clears the Flask session and breaks the encrypted cookie link to prevent unauthorized access to the command bridge. |
+**PHOENIX** е оперативна платформа, разработена за нуждите на **Главна дирекция „Пожарна безопасност и защита на населението" (ГДПБЗН)**. Системата подпомага ежедневната работа на пожарникарите чрез централизирано управление на произшествия, екипи, ресурси и комуникация в реално време.
 
 ---
 
-## 🛠️ THE TECH STACK (ARCHITECTURE)
+## ✨ Функционалности
 
-### **Frontend: The Tactical HUD**
-* **HTML5/CSS3:** Implements **Glassmorphism** UI (blur-based transparency) for a modern, sleek aesthetic.
-* **JavaScript (ES6):** Handles real-time map interaction, theme switching, and UI responsiveness.
-* **Leaflet.js:** The core mapping engine providing the interactive API for markers and layers.
+### 🚨 Управление на произшествия
+- Регистрация на нови сигнали с адрес и GPS координати
+- Интерактивна карта (Leaflet / Folium) с маркери на всички активни произшествия
+- Статус на произшествието: **Активно** / **Приключило**
+- Разграничение между оперативни сигнали и **граждански сигнали**
 
-### **Backend: The Command Core**
-* **Python (Flask):** Orchestrates the server-side logic, routing, and incident processing.
-* **Jinja2:** Dynamically renders tactical data and incident logs into the HTML HUD.
-* **Folium:** Acts as the bridge between Python and Leaflet, generating the map's JS foundation.
+### 👤 Граждански сигнали
+- Форма за подаване на сигнал от граждани (роля `user`)
+- Информация за **ранени**, **брой пострадали**, **опасни вещества**
+- Автоматично определяне на GPS локация от браузъра
+- Данни за контакт с подателя
+- Визуално разграничаване на гражданските сигнали в картата и списъка
 
-### **Database: Intelligence Vault**
-* **SQLite:** A lightweight, high-performance relational database for local deployment.
-* **SQLAlchemy (ORM):** Manages data integrity for Users and Incidents using secure object-oriented mapping.
+### 🗺️ GPS навигация
+- Бутон **„Навигирай"** при всяко произшествие → отваря маршрут в **Google Maps**
+- Алтернативна навигация чрез **Waze**
+- GPS проследяване на позицията на екипите върху картата в реално време
+
+### 📋 Управление на задачи
+- Задачи по всяко произшествие: **Оперативни 🔥 / Логистични 🚛 / Административни 📋**
+- Присвояване на задача на конкретен служител
+- Отбелязване на задача като **завършена**
+
+### 💬 Чат канали
+- **Чат по произшествие** — само за admin и firefighter, обвързан с конкретния сигнал
+- **Оперативен чат** — глобален канал за цялото оперативно дежурство
+- Шаблонни съобщения за бързо докладване (8 предефинирани)
+- Авто-обновяване на всеки 8 секунди
+
+### 🚒 База данни с пожарни автомобили
+- **60+ пожарни автомобила** от всички 28 области в България
+- Типове: Пожарогасителни, Автоцистерни, Автостълби, Спасителни
+- Филтър по регион, статус (Наличен / Изпратен / Ремонт), капацитет вода
+- Обвързване на служители с конкретен автомобил
+
+### 👥 Управление на екипи и смени
+- Регистрация на служители с назначен автомобил
+- Управление на смени (начало / край на смяна)
+- Статуси: Наличен / На произшествие / Отпуск / Болничен / Извън смяна
+- Обобщение: брой на смяна и налични служители
+
+### 🔔 Нотификации
+- Browser notifications при нов сигнал (с разрешение)
+- Toast известия в приложението за всички нови произшествия
+- Polling на всеки 15 секунди
+
+### 🌗 Тъмна / Светла тема
+- Превключване между dark / light mode
+- Запаметяване в localStorage
 
 ---
 
-## 📂 SYSTEM TOPOLOGY
+## 🔐 Роли и права
+
+| Роля | Регистрация на сигнал | Чат | Задачи | Екипи | Навигация | Граждански сигнал |
+|------|----------------------|-----|--------|-------|-----------|-------------------|
+| `admin` | ✅ | ✅ | ✅ | ✅ (пълен достъп) | ✅ | ❌ |
+| `firefighter` | ✅ | ✅ | ✅ | 🔶 (само статус) | ✅ | ❌ |
+| `user` | ❌ | ❌ (само чете) | ❌ | ❌ | ❌ | ✅ |
+
+> Първият регистриран потребител автоматично получава роля `admin`.
+
+---
+
+## 🛠️ Технологии
+
+| Компонент | Технология |
+|-----------|-----------|
+| Backend | Python 3 / Flask |
+| База данни | SQLite + SQLAlchemy ORM |
+| Карти | Folium (Leaflet.js) |
+| Tile layers | CartoDB Dark Matter / Positron |
+| Frontend | Vanilla JS + Anime.js |
+| Икони | Font Awesome 6 |
+| Стилове | Custom CSS с CSS Variables |
+
+---
+
+## 🚀 Инсталация и стартиране
+
+### Изисквания
+- Python 3.10+
+- pip
+
+### Стъпки
 
 ```bash
-📦 iara-gdbpzn-BZileva23
- ┣ 📂 static             # Tactical HUD Styles & Kinetic CSS (style.css)
- ┣ 📂 templates          # View Layers (index.html, login.html, register.html)
- ┣ 📜 app.py             # Global Command Logic & Signal Routing
- ┣ 📜 models.py          # Database Schema & Intelligence
- ┣ 📜 fire_system.db     # Local Data Vault (Encrypted SQL)
- ┗ 📜 README.md          # System Documentation
+# 1. Клонирай репото
+git clone https://github.com/your-username/phoenix-fire-system.git
+cd phoenix-fire-system
+
+# 2. Създай виртуална среда
+python -m venv venv
+
+# За Windows:
+venv\Scripts\activate
+# За Mac/Linux:
+source venv/bin/activate
+
+# 3. Инсталирай зависимостите
+pip install flask flask-sqlalchemy folium
+
+# 4. Инициализирай базата данни и добави demo данни
+python seed_db.py
+
+# 5. Стартирай приложението
+python app.py
+```
+
+### Достъп
+Отвори браузъра на: **http://127.0.0.1:5000**
+
+**Default admin акаунт:**
+```
+Потребител: admin
+Парола:     admin123
+```
+
+> ⚠️ Смени паролата след първото влизане!
+
+---
+
+## 📁 Структура на проекта
+
+```
+phoenix/
+│
+├── app.py              # Flask приложение — всички routes
+├── models.py           # SQLAlchemy модели
+├── seed_db.py          # Инициализация на DB + demo данни
+│
+├── templates/
+│   ├── index.html      # Главна страница (карта + панели)
+│   ├── login.html      # Форма за вход
+│   └── register.html   # Форма за регистрация
+│
+└── static/
+    ├── style.css       # Стилове (dark/light theme)
+    └── main.js         # Цялата клиентска логика
+```
+
+---
+
+## 🗄️ Модели в базата данни
+
+```
+User          — Потребители (admin / firefighter / user)
+Incident      — Произшествия (оперативни + граждански)
+Task          — Задачи по произшествие
+ChatMessage   — Чат по произшествие
+GlobalMessage — Оперативен глобален чат
+FireVehicle   — Пожарни автомобили (60+ за България)
+TeamMember    — Служители / пожарникари
+Shift         — Смени на служителите
+```
+
+---
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Хеширане на пароли (bcrypt)
+- [ ] WebSocket за real-time чат (без polling)
+- [ ] Мобилно приложение за пожарникарите
+- [ ] Прикачване на снимки в чата
+- [ ] Експорт на доклади за произшествие (PDF)
+- [ ] Интеграция с 112
+
+---
+
+## 📄 Лиценз
+
+MIT License — виж [LICENSE](LICENSE) за детайли.
+
+---
+
+<div align="center">
+
+Разработено като учебен проект по условието на **ГДПБЗН**
+
+⭐ Ако проектът ти е харесал — постави звезда!
+
+</div>

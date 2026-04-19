@@ -1,18 +1,17 @@
 // ════════════════════════════════════════════════════════
-//  PHOENIX — main.js  v4
-//  + GPS навигация, оперативен чат, граждански сигнал, нотификации
+//  PHOENIX — main.js  v5
+//  GPS fix, снимки, смени, изпращане на екип към сигнал
 // ════════════════════════════════════════════════════════
 
-// ── State ────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────
 let currentIncidentId  = null;
 let currentIncidentLat = null;
 let currentIncidentLon = null;
 let chatInterval       = null;
 let gchatInterval      = null;
 let notifLastId        = 0;
-let notifInterval      = null;
 
-// ── Esc / XSS ────────────────────────────────────────────
+// ── Utils ─────────────────────────────────────────────────
 function esc(s) {
     if (!s) return '';
     return String(s)
@@ -20,15 +19,14 @@ function esc(s) {
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Панели ───────────────────────────────────────────────
-const PANELS = ['teamsPanel','adminPanel','vehiclesPanel','gchatPanel','citizenPanel'];
+// ── Панели ────────────────────────────────────────────────
+const SIDE_PANELS = ['teamsPanel','adminPanel','vehiclesPanel','gchatPanel','citizenPanel'];
 
 function toggle(id) {
     const el = document.getElementById(id);
     if (!el) return;
     const isOpen = el.style.display !== 'none' && el.style.display !== '';
-    // Затвори другите странични панели (не incidentPanel)
-    PANELS.forEach(pid => {
+    SIDE_PANELS.forEach(pid => {
         if (pid !== id) {
             const p = document.getElementById(pid);
             if (p) p.style.display = 'none';
@@ -44,8 +42,7 @@ function toggle(id) {
 function hidePanel() {
     const p = document.getElementById('incidentPanel');
     if (p) p.style.display = 'none';
-    if (chatInterval) clearInterval(chatInterval);
-    chatInterval = null;
+    if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
 }
 
 // ── Тема ─────────────────────────────────────────────────
@@ -84,7 +81,7 @@ function runSmartSearch() {
     }
 }
 
-// ── Карта & навигация ─────────────────────────────────────
+// ── Карта ────────────────────────────────────────────────
 function zoomTo(lat, lon, id) {
     if (!window.mapObj) return;
     window.mapObj.flyTo([lat, lon], 14, { animate: true, duration: 2 });
@@ -95,34 +92,153 @@ function zoomTo(lat, lon, id) {
     currentIncidentLat = lat;
     currentIncidentLon = lon;
 
+    // Активен клас
     document.querySelectorAll('.glass-item[data-inc-id]').forEach(el =>
         el.classList.toggle('active-incident', String(el.dataset.incId) === currentIncidentId));
 
-    loadTasks(id);
-    loadChat(id);
-
+    // Покажи панела
     const panel = document.getElementById('incidentPanel');
     if (panel) panel.style.display = 'flex';
 
-    // Обновяване на координатите в бутона за навигация
-    const navBtn = document.getElementById('navBtn');
-    if (navBtn) navBtn.style.display = 'flex';
+    // Покажи навигационните бутони — ВЕДНАГА след като имаме координатите
+    updateNavButtons(lat, lon);
+
+    // Зареди данни
+    loadTasks(id);
+    loadChat(id);
+    loadPhotos(id);
+    loadAssignments(id);
 
     if (chatInterval) clearInterval(chatInterval);
     chatInterval = setInterval(() => loadChat(id), 8000);
 }
 
-function navigateTo() {
-    if (!currentIncidentLat || !currentIncidentLon) return;
-    // Отваря Google Maps с маршрут до сигнала
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${currentIncidentLat},${currentIncidentLon}&travelmode=driving`;
-    window.open(url, '_blank');
+// ── GPS Навигация — оправена ──────────────────────────────
+function updateNavButtons(lat, lon) {
+    const googleBtn = document.getElementById('navGoogleBtn');
+    const wazeBtn   = document.getElementById('navWazeBtn');
+    if (!googleBtn || !wazeBtn) return;
+
+    // Директно слагаме href и показваме бутоните
+    const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
+    const wazeUrl   = `https://waze.com/ul?ll=${lat},${lon}&navigate=yes`;
+
+    googleBtn.href = googleUrl;
+    wazeBtn.href   = wazeUrl;
+    googleBtn.style.display = 'inline-flex';
+    wazeBtn.style.display   = 'inline-flex';
 }
 
-function navigateWaze() {
-    if (!currentIncidentLat || !currentIncidentLon) return;
-    const url = `https://waze.com/ul?ll=${currentIncidentLat},${currentIncidentLon}&navigate=yes`;
-    window.open(url, '_blank');
+// ── Снимки ────────────────────────────────────────────────
+async function loadPhotos(incId) {
+    try {
+        const r = await fetch(`/incident/${incId}/photos`);
+        if (!r.ok) return;
+        const photos = await r.json();
+        renderPhotos(photos);
+    } catch(e) { console.error('loadPhotos', e); }
+}
+
+function renderPhotos(photos) {
+    const grid = document.getElementById('photoGrid');
+    if (!grid) return;
+    if (!photos.length) {
+        grid.innerHTML = '<p class="empty-hint">Няма снимки</p>';
+        return;
+    }
+    grid.innerHTML = photos.map(p => `
+        <div class="photo-item">
+            <a href="${p.url}" target="_blank">
+                <img src="${p.url}" alt="${esc(p.original)}" loading="lazy">
+            </a>
+            <span class="photo-meta">${esc(p.uploaded_by)} · ${p.time}</span>
+        </div>`).join('');
+}
+
+async function uploadPhoto() {
+    const input = document.getElementById('photoUploadInput');
+    if (!input || !input.files.length || !currentIncidentId) return;
+    const formData = new FormData();
+    formData.append('photo', input.files[0]);
+    try {
+        const r = await fetch(`/incident/${currentIncidentId}/upload_photo`, {
+            method: 'POST', body: formData
+        });
+        if (!r.ok) throw r.status;
+        const data = await r.json();
+        // Добавя снимката без reload
+        const grid = document.getElementById('photoGrid');
+        const emptyHint = grid.querySelector('.empty-hint');
+        if (emptyHint) emptyHint.remove();
+        const div = document.createElement('div');
+        div.className = 'photo-item';
+        div.innerHTML = `
+            <a href="${data.url}" target="_blank">
+                <img src="${data.url}" alt="${esc(data.original)}" loading="lazy">
+            </a>
+            <span class="photo-meta">${esc(data.uploaded_by)} · ${data.time}</span>`;
+        grid.appendChild(div);
+        input.value = '';
+        showNotif('📸 Снимката е качена', 'success');
+    } catch(e) { showNotif('❌ Грешка при качване', 'error'); }
+}
+
+// ── Изпращане на екип към сигнал ──────────────────────────
+async function loadAssignments(incId) {
+    try {
+        const r = await fetch(`/incident/${incId}/assignments`);
+        if (!r.ok) return;
+        const assignments = await r.json();
+        const cont = document.getElementById('assignmentsList');
+        if (!cont) return;
+
+        const statusLabel = { dispatched:'🚒 Изпратен', on_scene:'✅ На място', returned:'🔙 Върнат' };
+
+        if (!assignments.length) {
+            cont.innerHTML = '<p class="empty-hint">Няма изпратени екипи</p>';
+            return;
+        }
+        cont.innerHTML = assignments.map(a => `
+            <div class="assignment-item">
+                <div class="assignment-info">
+                    <span class="assignment-name">${esc(a.name)}</span>
+                    ${a.vehicle ? `<span class="assignment-vehicle">🚒 ${esc(a.vehicle)}</span>` : ''}
+                    <span class="assignment-time">от ${esc(a.assigned_by)} · ${a.assigned_at}</span>
+                </div>
+                <select class="xs-select" onchange="updateAssignmentStatus(${a.id}, this.value)">
+                    <option value="dispatched" ${a.status==='dispatched'?'selected':''}>🚒 Изпратен</option>
+                    <option value="on_scene"   ${a.status==='on_scene'?'selected':''}>✅ На място</option>
+                    <option value="returned"   ${a.status==='returned'?'selected':''}>🔙 Върнат</option>
+                </select>
+            </div>`).join('');
+    } catch(e) { console.error('loadAssignments', e); }
+}
+
+async function assignMember(memberId, memberName) {
+    if (!currentIncidentId) { showNotif('⚠️ Първо избери произшествие', 'error'); return; }
+    try {
+        const r = await fetch(`/incident/${currentIncidentId}/assign`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ member_id: memberId })
+        });
+        const data = await r.json();
+        if (r.status === 409) { showNotif(`${memberName} вече е изпратен`, 'error'); return; }
+        if (!r.ok) throw r.status;
+        showNotif(`🚒 ${memberName} изпратен към сигнала`, 'success');
+        loadAssignments(currentIncidentId);
+        loadMembers(); // Обновява статуса
+    } catch(e) { console.error('assignMember', e); }
+}
+
+async function updateAssignmentStatus(assignId, status) {
+    try {
+        await fetch(`/assignment/${assignId}/status`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ status })
+        });
+        loadAssignments(currentIncidentId);
+        loadMembers();
+    } catch(e) { console.error('updateAssignmentStatus', e); }
 }
 
 // ── Tasks ─────────────────────────────────────────────────
@@ -135,9 +251,7 @@ async function loadTasks(incId) {
         const tasks = await r.json();
         const list  = document.getElementById('taskList');
         if (!list) return;
-        if (!tasks.length) {
-            list.innerHTML = '<p class="empty-hint">Няма задачи</p>'; return;
-        }
+        if (!tasks.length) { list.innerHTML = '<p class="empty-hint">Няма задачи</p>'; return; }
         list.innerHTML = tasks.map(t => `
             <div class="task-item ${t.status==='done'?'task-done':''}">
                 <span class="task-icon">${TYPE_ICONS[t.task_type]||'📌'}</span>
@@ -150,8 +264,8 @@ async function loadTasks(incId) {
 }
 
 async function addTask() {
-    const inp  = document.getElementById('newTaskInput');
-    const sel  = document.getElementById('taskType');
+    const inp   = document.getElementById('newTaskInput');
+    const sel   = document.getElementById('taskType');
     const title = inp ? inp.value.trim() : '';
     if (!title || !currentIncidentId) return;
     try {
@@ -211,14 +325,13 @@ async function sendMsg(text) {
     } catch(e) { console.error('sendMsg', e); }
 }
 
-// ── Global Chat (само admin + firefighter) ────────────────
+// ── Global Chat ───────────────────────────────────────────
 async function loadGChat() {
     try {
         const r = await fetch('/gchat');
         if (!r.ok) return;
-        const msgs = await r.json();
-        renderMsgs('gchatMessages', msgs, true);
-    } catch(e) { console.error('loadGChat', e); }
+        renderMsgs('gchatMessages', await r.json(), true);
+    } catch(e) {}
 }
 
 async function sendGChat() {
@@ -232,22 +345,19 @@ async function sendGChat() {
         });
         if (inp) inp.value = '';
         loadGChat();
-    } catch(e) { console.error('sendGChat', e); }
+    } catch(e) {}
 }
 
-// ── Общ renderer за чат съобщения ─────────────────────────
 function renderMsgs(boxId, msgs, showRole) {
     const box = document.getElementById(boxId);
     if (!box) return;
     const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 24;
-    if (!msgs.length) {
-        box.innerHTML = '<p class="empty-hint">Няма съобщения</p>'; return;
-    }
-    const roleColor = { admin: '#f87171', firefighter: '#fb923c' };
+    if (!msgs.length) { box.innerHTML = '<p class="empty-hint">Няма съобщения</p>'; return; }
+    const roleColor = { admin:'#f87171', firefighter:'#fb923c' };
     box.innerHTML = msgs.map(m => `
         <div class="chat-msg">
-            <span class="chat-user" style="color:${showRole ? (roleColor[m.role]||'#94a3b8') : 'var(--primary)'}">
-                ${esc(m.user)}${showRole && m.role ? ` <em style="font-size:10px;opacity:.6">[${m.role}]</em>` : ''}
+            <span class="chat-user" style="color:${showRole?(roleColor[m.role]||'#94a3b8'):'var(--primary)'}">
+                ${esc(m.user)}${showRole&&m.role?` <em style="font-size:10px;opacity:.6">[${m.role}]</em>`:''}
             </span>
             <span class="chat-time">${m.time}</span>
             <div class="chat-text">${esc(m.text)}</div>
@@ -255,113 +365,7 @@ function renderMsgs(boxId, msgs, showRole) {
     if (atBottom) box.scrollTop = box.scrollHeight;
 }
 
-// ── Граждански сигнал ─────────────────────────────────────
-function openCitizenForm() {
-    // Взима GPS позицията на потребителя ако е налична
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            const latF = document.getElementById('cLat');
-            const lonF = document.getElementById('cLon');
-            if (latF) latF.value = pos.coords.latitude.toFixed(6);
-            if (lonF) lonF.value = pos.coords.longitude.toFixed(6);
-        }, () => {});
-    }
-    toggle('citizenPanel');
-}
-
-async function submitCitizenReport() {
-    const get = id => document.getElementById(id);
-    const lat  = parseFloat(get('cLat')?.value);
-    const lon  = parseFloat(get('cLon')?.value);
-    const type = get('cType')?.value;
-    const desc = get('cDesc')?.value?.trim();
-
-    if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
-        showNotif('⚠️ Въведи валидни GPS координати', 'error'); return;
-    }
-
-    const payload = {
-        incident_type:  type || 'Граждански сигнал',
-        description:    desc || '',
-        lat, lon,
-        injured:        get('cInjured')?.checked || false,
-        injured_count:  parseInt(get('cInjuredCount')?.value) || 0,
-        hazmat:         get('cHazmat')?.checked || false,
-        reporter_name:  get('cName')?.value?.trim() || '',
-        reporter_phone: get('cPhone')?.value?.trim() || '',
-    };
-
-    try {
-        const r = await fetch('/citizen_report', {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify(payload)
-        });
-        const data = await r.json();
-        if (data.status === 'ok') {
-            showNotif('✅ Сигналът е изпратен успешно! ID: ' + data.id, 'success');
-            // Нулира формата
-            ['cLat','cLon','cDesc','cName','cPhone','cInjuredCount'].forEach(id => {
-                const el = get(id); if (el) el.value = '';
-            });
-            ['cInjured','cHazmat'].forEach(id => {
-                const el = get(id); if (el) el.checked = false;
-            });
-            toggle('citizenPanel');
-            // Презарежда страницата след 2 сек за да се появи новия маркер
-            setTimeout(() => location.reload(), 2000);
-        }
-    } catch(e) { showNotif('❌ Грешка при изпращане', 'error'); }
-}
-
-// Показва/скрива полето за брой ранени
-function toggleInjuredCount() {
-    const cb  = document.getElementById('cInjured');
-    const row = document.getElementById('injuredCountRow');
-    if (row) row.style.display = cb && cb.checked ? 'flex' : 'none';
-}
-
-// ── Browser нотификации ───────────────────────────────────
-function requestNotifPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-    }
-}
-
-async function checkNewIncidents() {
-    try {
-        const r = await fetch(`/incidents/new_since/${notifLastId}`);
-        if (!r.ok) return;
-        const newIncs = await r.json();
-        if (newIncs.length) {
-            notifLastId = Math.max(...newIncs.map(i => i.id));
-            newIncs.forEach(inc => {
-                // In-app toast
-                showNotif(`🚨 НОВ СИГНАЛ: ${inc.title}${inc.source==='citizen'?' (граждански)':''}`, 'alert');
-                // Browser notification
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('PHOENIX — Нов сигнал', {
-                        body: inc.title,
-                        icon: '/static/favicon.ico'
-                    });
-                }
-            });
-        }
-    } catch(e) {}
-}
-
-// ── Toast нотификации ─────────────────────────────────────
-function showNotif(msg, type='info') {
-    const cont = document.getElementById('toastContainer');
-    if (!cont) return;
-    const t = document.createElement('div');
-    t.className = `toast toast-${type}`;
-    t.textContent = msg;
-    cont.appendChild(t);
-    setTimeout(() => t.classList.add('toast-show'), 10);
-    setTimeout(() => { t.classList.remove('toast-show'); setTimeout(() => t.remove(), 400); }, 4000);
-}
-
-// ── Team members ──────────────────────────────────────────
+// ── Members & Shifts ──────────────────────────────────────
 const STATUS_INFO = {
     available:   { icon:'🟢', label:'Наличен' },
     on_incident: { icon:'🔴', label:'На произшествие' },
@@ -378,23 +382,55 @@ async function loadMembers() {
         const cont    = document.getElementById('membersList');
         const summary = document.getElementById('memberSummary');
         if (!cont) return;
+
         const onShift = members.filter(m => m.on_shift).length;
         const avail   = members.filter(m => m.on_shift && m.status === 'available').length;
         if (summary) summary.textContent = `На смяна: ${onShift}  |  Налични: ${avail}`;
+
         if (!members.length) { cont.innerHTML = '<p class="empty-hint">Няма служители</p>'; return; }
+
         cont.innerHTML = members.map(m => {
             const s = STATUS_INFO[m.status] || { icon:'⚪', label: m.status };
-            return `<div class="member-item ${!m.on_shift?'member-off':''}">
-                <span>${s.icon}</span>
+            return `
+            <div class="member-item ${!m.on_shift?'member-off':''}">
+                <span class="member-status-icon">${s.icon}</span>
                 <div class="member-info">
                     <span class="member-name">${esc(m.name)}</span>
-                    ${m.vehicle?`<span class="member-vehicle">${esc(m.vehicle)}</span>`:''}
+                    ${m.vehicle?`<span class="member-vehicle">🚒 ${esc(m.vehicle)}</span>`:''}
                     ${m.shift_notes?`<span class="member-note">${esc(m.shift_notes)}</span>`:''}
                 </div>
-                <span class="member-status-label">${s.label}</span>
+                <div class="member-actions">
+                    <span class="member-status-label">${s.label}</span>
+                    <div class="member-btns">
+                        ${m.on_shift
+                            ? `<button class="btn-xs" style="background:var(--amber);color:#fff;"
+                                onclick="shiftAction(${m.id},'end','${esc(m.name)}')">⏹ Края</button>`
+                            : `<button class="btn-xs btn-green"
+                                onclick="shiftAction(${m.id},'start','${esc(m.name)}')">▶ Смяна</button>`
+                        }
+                        <button class="btn-xs btn-red" title="Изпрати към сигнала"
+                            onclick="assignMember(${m.id},'${esc(m.name)}')">🚒 Изпрати</button>
+                    </div>
+                </div>
             </div>`;
         }).join('');
     } catch(e) { console.error('loadMembers', e); }
+}
+
+async function shiftAction(memberId, action, name) {
+    try {
+        let notes = '';
+        if (action === 'start') {
+            notes = prompt(`Бележка за смяната на ${name} (незадължително):`) || '';
+        }
+        const r = await fetch(`/members/${memberId}/shift`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action, notes })
+        });
+        if (!r.ok) throw r.status;
+        showNotif(action === 'start' ? `▶ ${name} — смяната е започната` : `⏹ ${name} — смяната е приключена`, 'success');
+        loadMembers();
+    } catch(e) { showNotif('Грешка при смяна', 'error'); }
 }
 
 async function addMember() {
@@ -402,10 +438,11 @@ async function addMember() {
     const vid  = document.getElementById('newMemberVehicle')?.value||'';
     if (!name) return;
     await fetch('/members/add', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ name, vehicle_id: vid||null, start_shift: true })
     });
     document.getElementById('newMemberName').value = '';
+    showNotif(`✅ ${name} добавен и смяната е стартирана`, 'success');
     loadMembers();
 }
 
@@ -430,7 +467,7 @@ async function loadVehicles(region) {
                         <span class="vehicle-sign">${esc(v.call_sign)}</span>
                         <span class="vehicle-type">${esc(v.vehicle_type)}${v.model?' · '+esc(v.model):''}</span>
                         <span class="vehicle-station">${esc(v.station)}</span>
-                        ${v.water_cap_l?`<span class="vehicle-water">💧 ${v.water_cap_l.toLocaleString()} л`:''}
+                        ${v.water_cap_l?`<span class="vehicle-water">💧 ${v.water_cap_l.toLocaleString()} л</span>`:''}
                     </div>
                     <select class="xs-select" onchange="updateVehicleStatus(${v.id},this.value)">
                         <option value="available"   ${v.status==='available'?'selected':''}>Наличен</option>
@@ -444,15 +481,13 @@ async function loadVehicles(region) {
 }
 
 async function updateVehicleStatus(id, status) {
-    try {
-        await fetch(`/vehicles/${id}/status`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ status })
-        });
-    } catch(e) {}
+    await fetch(`/vehicles/${id}/status`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ status })
+    });
 }
 
-// ── Admin роли ────────────────────────────────────────────
+// ── Admin ────────────────────────────────────────────────
 async function changeRole(userId, newRole) {
     if (!newRole) return;
     try {
@@ -464,6 +499,62 @@ async function changeRole(userId, newRole) {
         const badge = document.getElementById(`rb-${userId}`);
         if (badge) { badge.textContent = newRole; badge.className = `role-badge role-${newRole}`; }
     } catch(e) { alert('Грешка при смяна на роля'); }
+}
+
+// ── Граждански сигнал ─────────────────────────────────────
+function openCitizenForm() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            const latF = document.getElementById('cLat');
+            const lonF = document.getElementById('cLon');
+            if (latF) latF.value = pos.coords.latitude.toFixed(6);
+            if (lonF) lonF.value = pos.coords.longitude.toFixed(6);
+        }, () => {});
+    }
+    toggle('citizenPanel');
+}
+
+async function submitCitizenReport() {
+    const get = id => document.getElementById(id);
+    const lat  = parseFloat(get('cLat')?.value);
+    const lon  = parseFloat(get('cLon')?.value);
+    if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+        showNotif('⚠️ Въведи валидни GPS координати', 'error'); return;
+    }
+    const payload = {
+        incident_type:  get('cType')?.value || 'Граждански сигнал',
+        description:    get('cDesc')?.value?.trim() || '',
+        lat, lon,
+        injured:        get('cInjured')?.checked || false,
+        injured_count:  parseInt(get('cInjuredCount')?.value) || 0,
+        hazmat:         get('cHazmat')?.checked || false,
+        reporter_name:  get('cName')?.value?.trim() || '',
+        reporter_phone: get('cPhone')?.value?.trim() || '',
+    };
+    try {
+        const r = await fetch('/citizen_report', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+        if (data.status === 'ok') {
+            showNotif('✅ Сигналът е изпратен! ID: ' + data.id, 'success');
+            ['cLat','cLon','cDesc','cName','cPhone','cInjuredCount'].forEach(id => {
+                const el = get(id); if (el) el.value = '';
+            });
+            ['cInjured','cHazmat'].forEach(id => {
+                const el = get(id); if (el) el.checked = false;
+            });
+            toggle('citizenPanel');
+            setTimeout(() => location.reload(), 2000);
+        }
+    } catch(e) { showNotif('❌ Грешка при изпращане', 'error'); }
+}
+
+function toggleInjuredCount() {
+    const cb  = document.getElementById('cInjured');
+    const row = document.getElementById('injuredCountRow');
+    if (row) row.style.display = cb && cb.checked ? 'flex' : 'none';
 }
 
 // ── SOS ───────────────────────────────────────────────────
@@ -478,33 +569,60 @@ function sendSOS() {
         : send(null, null);
 }
 
+// ── Нотификации ───────────────────────────────────────────
+function requestNotifPermission() {
+    if ('Notification' in window && Notification.permission === 'default')
+        Notification.requestPermission();
+}
+
+async function checkNewIncidents() {
+    try {
+        const r = await fetch(`/incidents/new_since/${notifLastId}`);
+        if (!r.ok) return;
+        const newIncs = await r.json();
+        if (newIncs.length) {
+            notifLastId = Math.max(...newIncs.map(i => i.id));
+            newIncs.forEach(inc => {
+                showNotif(`🚨 НОВ СИГНАЛ: ${inc.title}${inc.source==='citizen'?' (граждански)':''}`, 'alert');
+                if ('Notification' in window && Notification.permission === 'granted')
+                    new Notification('PHOENIX — Нов сигнал', { body: inc.title });
+            });
+        }
+    } catch(e) {}
+}
+
+// ── Toast ─────────────────────────────────────────────────
+function showNotif(msg, type='info') {
+    const cont = document.getElementById('toastContainer');
+    if (!cont) return;
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    cont.appendChild(t);
+    setTimeout(() => t.classList.add('toast-show'), 10);
+    setTimeout(() => { t.classList.remove('toast-show'); setTimeout(() => t.remove(), 400); }, 4000);
+}
+
 // ── Init ─────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-    // Тема
     const saved = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', saved);
     setTimeout(() => applyTheme(saved), 900);
 
-    // Анимация
     if (typeof anime !== 'undefined')
         anime({ targets:'#sidebar', translateX:[-360,0], duration:1000, easing:'easeOutExpo' });
 
-    // Шаблони за чат
     buildTemplates();
-
-    // Членове на екипа
     loadMembers();
     setInterval(loadMembers, 30000);
 
-    // Нотификации
     requestNotifPermission();
-    // Инициализира lastId от вече заредените произшествия
     if (window.incData && window.incData.length)
         notifLastId = Math.max(...window.incData.map(i => i.id));
-    notifInterval = setInterval(checkNewIncidents, 15000);
+    setInterval(checkNewIncidents, 15000);
 
     // stopPropagation на всички панели
-    [...PANELS, 'incidentPanel'].forEach(id => {
+    [...SIDE_PANELS, 'incidentPanel'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('click', e => e.stopPropagation());
     });

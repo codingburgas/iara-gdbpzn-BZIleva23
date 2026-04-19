@@ -1,27 +1,38 @@
 from flask import (Flask, render_template, request, redirect,
-                   url_for, session, abort, jsonify)
-from models import (db, User, Incident, Task, ChatMessage,
-                    GlobalMessage, TeamMember, Shift, FireVehicle)
+                   url_for, session, abort, jsonify, send_from_directory)
+from models import (db, User, Incident, Task, ChatMessage, GlobalMessage,
+                    TeamMember, Shift, FireVehicle, IncidentPhoto, AssignedTeam)
 from datetime import datetime
-import folium, json
+from werkzeug.utils import secure_filename
+import folium, json, os, uuid
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///fire_system.db'
 app.config['SECRET_KEY'] = 'phoenix-2026-secure'
+app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
 db.init_app(app)
 
 with app.app_context():
     db.create_all()
+    # Създай uploads папката ако не съществува
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     if not User.query.filter_by(username='admin').first():
         db.session.add(User(username='admin', password='admin123', role='admin'))
         db.session.commit()
         print('[PHOENIX] ✅ admin / admin123')
 
 
-# ── helpers ─────────────────────────────────────────────────────────────────
+# ── helpers ──────────────────────────────────────────────────────────────────
 
-def ok():      return 'user_id' in session
-def role(*r):  return session.get('role') in r
+def ok():     return 'user_id' in session
+def role(*r): return session.get('role') in r
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 # ── INDEX ────────────────────────────────────────────────────────────────────
@@ -41,15 +52,17 @@ def index():
 
     inc_data = []
     for inc in incidents:
-        color  = 'red' if inc.status == 'active' else 'gray'
-        # Иконка за граждански сигнали
+        color     = 'red' if inc.status == 'active' else 'gray'
         icon_name = 'fire' if inc.source != 'citizen' else 'exclamation-circle'
+        popup_html = f"""
+            <b>{inc.title}</b><br>
+            {inc.description or ''}<br>
+            {'⚠️ РАНЕНИ: '+str(inc.injured_count) if inc.injured else ''}
+            {'<br>☢️ ОПАСНИ ВЕЩЕСТВА' if inc.hazmat else ''}
+        """
         marker = folium.Marker(
             [inc.lat, inc.lon],
-            popup=f"""<b>{inc.title}</b><br>
-                {inc.description or ''}<br>
-                {'⚠️ РАНЕНИ: '+str(inc.injured_count) if inc.injured else ''}
-                {'☢️ ОПАСНИ ВЕЩЕСТВА' if inc.hazmat else ''}""",
+            popup=folium.Popup(popup_html, max_width=250),
             icon=folium.Icon(color=color, icon=icon_name, prefix='fa')
         )
         marker.add_to(m)
@@ -93,22 +106,84 @@ def index():
 def add_incident():
     if not role('admin', 'firefighter'): abort(403)
     try:
-        db.session.add(Incident(
+        inc = Incident(
             title=request.form.get('title', 'Без заглавие'),
             description=request.form.get('description', ''),
             lat=float(request.form.get('lat', 42.7)),
             lon=float(request.form.get('lon', 24.5)),
             source='operator'
-        ))
+        )
+        db.session.add(inc)
+        db.session.flush()  # вземи ID преди commit
+
+        # Обработка на качени снимки
+        photos = request.files.getlist('photos')
+        for photo in photos:
+            if photo and photo.filename and allowed_file(photo.filename):
+                ext      = photo.filename.rsplit('.', 1)[1].lower()
+                fname    = f"{uuid.uuid4().hex}.{ext}"
+                photo.save(os.path.join(app.config['UPLOAD_FOLDER'], fname))
+                db.session.add(IncidentPhoto(
+                    incident_id=inc.id,
+                    filename=fname,
+                    original=secure_filename(photo.filename),
+                    uploaded_by=session.get('username', '')
+                ))
+
         db.session.commit()
     except Exception as e:
         print(f'[ERROR] add_incident: {e}')
+        db.session.rollback()
     return redirect(url_for('index'))
+
+
+@app.route('/incident/<int:inc_id>/photos')
+def get_photos(inc_id):
+    if not ok(): abort(401)
+    photos = IncidentPhoto.query.filter_by(incident_id=inc_id).order_by(IncidentPhoto.ts).all()
+    return jsonify([{
+        'id': p.id,
+        'url': url_for('uploaded_file', filename=p.filename),
+        'original': p.original,
+        'uploaded_by': p.uploaded_by,
+        'time': p.ts.strftime('%d.%m %H:%M')
+    } for p in photos])
+
+
+@app.route('/incident/<int:inc_id>/upload_photo', methods=['POST'])
+def upload_photo(inc_id):
+    """Качване на снимка към вече съществуващо произшествие."""
+    if not role('admin', 'firefighter'): abort(403)
+    photo = request.files.get('photo')
+    if not photo or not photo.filename or not allowed_file(photo.filename):
+        return jsonify({'error': 'invalid file'}), 400
+    ext   = photo.filename.rsplit('.', 1)[1].lower()
+    fname = f"{uuid.uuid4().hex}.{ext}"
+    photo.save(os.path.join(app.config['UPLOAD_FOLDER'], fname))
+    p = IncidentPhoto(
+        incident_id=inc_id,
+        filename=fname,
+        original=secure_filename(photo.filename),
+        uploaded_by=session.get('username', '')
+    )
+    db.session.add(p)
+    db.session.commit()
+    return jsonify({
+        'status': 'ok', 'id': p.id,
+        'url': url_for('uploaded_file', filename=fname),
+        'original': p.original,
+        'uploaded_by': p.uploaded_by,
+        'time': p.ts.strftime('%d.%m %H:%M')
+    })
+
+
+@app.route('/static/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
 @app.route('/citizen_report', methods=['POST'])
 def citizen_report():
-    """Граждански сигнал — достъпен за всички (и user)."""
     if not ok(): abort(401)
     try:
         data = request.get_json(silent=True) or {}
@@ -129,7 +204,6 @@ def citizen_report():
         db.session.commit()
         return jsonify({'status': 'ok', 'id': inc.id})
     except Exception as e:
-        print(f'[ERROR] citizen_report: {e}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -144,10 +218,70 @@ def resolve_incident(inc_id):
 
 @app.route('/incidents/new_since/<int:since_id>')
 def new_since(since_id):
-    """Polling за нови произшествия — за нотификации."""
     if not ok(): abort(401)
     new = Incident.query.filter(Incident.id > since_id).all()
     return jsonify([{'id': i.id, 'title': i.title, 'source': i.source} for i in new])
+
+
+# ── ASSIGN TEAM ──────────────────────────────────────────────────────────────
+
+@app.route('/incident/<int:inc_id>/assign', methods=['POST'])
+def assign_member(inc_id):
+    """Изпраща служител към произшествие."""
+    if not role('admin', 'firefighter'): abort(403)
+    data      = request.get_json(silent=True) or {}
+    member_id = data.get('member_id')
+    if not member_id:
+        return jsonify({'error': 'missing member_id'}), 400
+
+    # Провери дали вече е назначен
+    existing = AssignedTeam.query.filter_by(
+        incident_id=inc_id, member_id=member_id
+    ).filter(AssignedTeam.status != 'returned').first()
+    if existing:
+        return jsonify({'error': 'already assigned'}), 409
+
+    a = AssignedTeam(
+        incident_id=inc_id,
+        member_id=int(member_id),
+        assigned_by=session.get('username', '')
+    )
+    db.session.add(a)
+
+    # Смени статуса на служителя
+    member = TeamMember.query.get(member_id)
+    if member:
+        member.status = 'on_incident'
+
+    db.session.commit()
+    return jsonify({'status': 'ok', 'assignment_id': a.id})
+
+
+@app.route('/incident/<int:inc_id>/assignments')
+def get_assignments(inc_id):
+    if not ok(): abort(401)
+    assignments = AssignedTeam.query.filter_by(incident_id=inc_id).all()
+    return jsonify([{
+        'id': a.id,
+        'member_id': a.member_id,
+        'name': a.member.name,
+        'vehicle': a.member.vehicle.call_sign if a.member.vehicle else '',
+        'status': a.status,
+        'assigned_by': a.assigned_by,
+        'assigned_at': a.assigned_at.strftime('%H:%M')
+    } for a in assignments])
+
+
+@app.route('/assignment/<int:assign_id>/status', methods=['POST'])
+def update_assignment_status(assign_id):
+    if not role('admin', 'firefighter'): abort(403)
+    data = request.get_json(silent=True) or {}
+    a    = AssignedTeam.query.get_or_404(assign_id)
+    a.status = data.get('status', a.status)
+    if a.status == 'returned':
+        a.member.status = 'available'
+    db.session.commit()
+    return jsonify({'status': 'ok'})
 
 
 # ── TASKS ────────────────────────────────────────────────────────────────────
@@ -189,7 +323,7 @@ def complete_task(task_id):
     return jsonify({'status': 'ok'})
 
 
-# ── INCIDENT CHAT ─────────────────────────────────────────────────────────────
+# ── CHAT ─────────────────────────────────────────────────────────────────────
 
 @app.route('/chat/<int:incident_id>')
 def get_chat(incident_id):
@@ -202,7 +336,7 @@ def get_chat(incident_id):
 
 @app.route('/chat/send', methods=['POST'])
 def send_chat():
-    if not role('admin', 'firefighter'): abort(403)   # само опер. персонал
+    if not role('admin', 'firefighter'): abort(403)
     data = request.get_json(silent=True) or {}
     if not data.get('incident_id') or not data.get('text'):
         return jsonify({'error': 'missing data'}), 400
@@ -215,16 +349,14 @@ def send_chat():
     return jsonify({'status': 'ok'})
 
 
-# ── GLOBAL CHAT (само admin + firefighter) ────────────────────────────────────
+# ── GLOBAL CHAT ───────────────────────────────────────────────────────────────
 
 @app.route('/gchat')
 def get_gchat():
     if not role('admin', 'firefighter'): abort(403)
-    msgs = (GlobalMessage.query.order_by(GlobalMessage.ts).limit(100).all())
-    return jsonify([{
-        'user': m.user, 'role': m.role,
-        'text': m.text, 'time': m.ts.strftime('%H:%M')
-    } for m in msgs])
+    msgs = GlobalMessage.query.order_by(GlobalMessage.ts).limit(100).all()
+    return jsonify([{'user': m.user, 'role': m.role, 'text': m.text,
+                     'time': m.ts.strftime('%H:%M')} for m in msgs])
 
 
 @app.route('/gchat/send', methods=['POST'])
@@ -242,13 +374,13 @@ def send_gchat():
     return jsonify({'status': 'ok'})
 
 
-# ── MEMBERS ──────────────────────────────────────────────────────────────────
+# ── MEMBERS + SHIFTS ──────────────────────────────────────────────────────────
 
 @app.route('/members')
 def get_members():
     if not ok(): abort(401)
     members = TeamMember.query.all()
-    result = []
+    result  = []
     for m in members:
         active_shift = next((s for s in m.shifts if s.is_active), None)
         result.append({
@@ -272,18 +404,51 @@ def add_member():
         status='available'
     )
     db.session.add(m)
-    db.session.commit()
+    db.session.flush()
     if data.get('start_shift'):
-        db.session.add(Shift(member_id=m.id, is_active=True))
-        db.session.commit()
+        db.session.add(Shift(
+            member_id=m.id, is_active=True,
+            notes=data.get('shift_notes', '')
+        ))
+    db.session.commit()
     return jsonify({'status': 'ok', 'id': m.id})
+
+
+@app.route('/members/<int:mid>/shift', methods=['POST'])
+def toggle_shift(mid):
+    """Стартира или приключва смяна."""
+    if not role('admin'): abort(403)
+    data   = request.get_json(silent=True) or {}
+    member = TeamMember.query.get_or_404(mid)
+    action = data.get('action')   # 'start' | 'end'
+
+    if action == 'start':
+        # Затвори евентуална отворена смяна
+        for s in member.shifts:
+            if s.is_active:
+                s.is_active = False
+                s.end_time  = datetime.utcnow()
+        db.session.add(Shift(
+            member_id=mid, is_active=True,
+            notes=data.get('notes', '')
+        ))
+        member.status = 'available'
+    elif action == 'end':
+        for s in member.shifts:
+            if s.is_active:
+                s.is_active = False
+                s.end_time  = datetime.utcnow()
+        member.status = 'off_duty'
+
+    db.session.commit()
+    return jsonify({'status': 'ok'})
 
 
 @app.route('/members/<int:mid>/status', methods=['POST'])
 def update_member_status(mid):
     if not role('admin', 'firefighter'): abort(403)
     data = request.get_json(silent=True) or {}
-    m = TeamMember.query.get_or_404(mid)
+    m    = TeamMember.query.get_or_404(mid)
     m.status = data.get('status', m.status)
     db.session.commit()
     return jsonify({'status': 'ok'})
@@ -291,39 +456,17 @@ def update_member_status(mid):
 
 @app.route('/members/<int:mid>/gps', methods=['POST'])
 def update_gps(mid):
-    """Пожарникарят изпраща позицията си от мобилното устройство."""
     if not ok(): abort(401)
     data = request.get_json(silent=True) or {}
-    m = TeamMember.query.get_or_404(mid)
-    m.gps_lat = data.get('lat')
-    m.gps_lon = data.get('lon')
+    m    = TeamMember.query.get_or_404(mid)
+    m.gps_lat     = data.get('lat')
+    m.gps_lon     = data.get('lon')
     m.gps_updated = datetime.utcnow()
     db.session.commit()
     return jsonify({'status': 'ok'})
 
 
-@app.route('/members/<int:mid>/shift', methods=['POST'])
-def toggle_shift(mid):
-    if not role('admin'): abort(403)
-    data   = request.get_json(silent=True) or {}
-    member = TeamMember.query.get_or_404(mid)
-    action = data.get('action')
-    if action == 'start':
-        for s in member.shifts:
-            if s.is_active:
-                s.is_active = False; s.end_time = datetime.utcnow()
-        db.session.add(Shift(member_id=mid, is_active=True, notes=data.get('notes', '')))
-        member.status = 'available'
-    elif action == 'end':
-        for s in member.shifts:
-            if s.is_active:
-                s.is_active = False; s.end_time = datetime.utcnow()
-        member.status = 'off_duty'
-    db.session.commit()
-    return jsonify({'status': 'ok'})
-
-
-# ── VEHICLES ─────────────────────────────────────────────────────────────────
+# ── VEHICLES ──────────────────────────────────────────────────────────────────
 
 @app.route('/vehicles')
 def get_vehicles():
@@ -343,13 +486,13 @@ def get_vehicles():
 def update_vehicle_status(vid):
     if not role('admin', 'firefighter'): abort(403)
     data = request.get_json(silent=True) or {}
-    v = FireVehicle.query.get_or_404(vid)
+    v    = FireVehicle.query.get_or_404(vid)
     v.status = data.get('status', v.status)
     db.session.commit()
     return jsonify({'status': 'ok'})
 
 
-# ── SOS ──────────────────────────────────────────────────────────────────────
+# ── SOS ───────────────────────────────────────────────────────────────────────
 
 @app.route('/sos', methods=['POST'])
 def sos():
@@ -359,7 +502,7 @@ def sos():
     return jsonify({'status': 'ok'})
 
 
-# ── ADMIN / USERS ─────────────────────────────────────────────────────────────
+# ── ADMIN ─────────────────────────────────────────────────────────────────────
 
 @app.route('/promote/<int:user_id>', methods=['POST'])
 def promote(user_id):
@@ -374,7 +517,7 @@ def promote(user_id):
     return jsonify({'status': 'ok', 'new_role': new_role})
 
 
-# ── AUTH ─────────────────────────────────────────────────────────────────────
+# ── AUTH ──────────────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

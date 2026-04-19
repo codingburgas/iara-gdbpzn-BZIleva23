@@ -24,13 +24,39 @@ class Incident(db.Model):
     # Граждански сигнали
     injured        = db.Column(db.Boolean, default=False)
     injured_count  = db.Column(db.Integer, default=0)
-    hazmat         = db.Column(db.Boolean, default=False)   # опасни вещества
+    hazmat         = db.Column(db.Boolean, default=False)
     reporter_phone = db.Column(db.String(30), default='')
     reporter_name  = db.Column(db.String(100), default='')
     source         = db.Column(db.String(20), default='operator')  # operator / citizen / 112
 
-    tasks    = db.relationship('Task',        backref='incident', lazy=True, cascade='all, delete-orphan')
-    messages = db.relationship('ChatMessage', backref='incident', lazy=True, cascade='all, delete-orphan')
+    tasks       = db.relationship('Task',          backref='incident', lazy=True, cascade='all, delete-orphan')
+    messages    = db.relationship('ChatMessage',   backref='incident', lazy=True, cascade='all, delete-orphan')
+    photos      = db.relationship('IncidentPhoto', backref='incident', lazy=True, cascade='all, delete-orphan')
+    assignments = db.relationship('AssignedTeam',  backref='incident', lazy=True, cascade='all, delete-orphan')
+
+
+class IncidentPhoto(db.Model):
+    """Снимки прикачени към произшествие."""
+    __tablename__ = 'incident_photo'
+    id          = db.Column(db.Integer, primary_key=True)
+    incident_id = db.Column(db.Integer, db.ForeignKey('incident.id'), nullable=False)
+    filename    = db.Column(db.String(200), nullable=False)   # UUID filename на диска
+    original    = db.Column(db.String(200), default='')       # оригинално иĥé на файла
+    uploaded_by = db.Column(db.String(50), default='')
+    ts          = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class AssignedTeam(db.Model):
+    """Екип / служител изпратен към произшествие."""
+    __tablename__ = 'assigned_team'
+    id          = db.Column(db.Integer, primary_key=True)
+    incident_id = db.Column(db.Integer, db.ForeignKey('incident.id'), nullable=False)
+    member_id   = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=False)
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    assigned_by = db.Column(db.String(50), default='')
+    status      = db.Column(db.String(20), default='dispatched')  # dispatched / on_scene / returned
+
+    member = db.relationship('TeamMember', backref='assignments', lazy=True)
 
 
 class Task(db.Model):
@@ -38,15 +64,14 @@ class Task(db.Model):
     id           = db.Column(db.Integer, primary_key=True)
     incident_id  = db.Column(db.Integer, db.ForeignKey('incident.id'), nullable=False)
     title        = db.Column(db.String(200), nullable=False)
-    assigned_to  = db.Column(db.String(50),  default='')
-    status       = db.Column(db.String(20),  default='open')
-    task_type    = db.Column(db.String(30),  default='operative')
+    assigned_to  = db.Column(db.String(50), default='')
+    status       = db.Column(db.String(20), default='open')
+    task_type    = db.Column(db.String(30), default='operative')
     created_at   = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
 
 
 class ChatMessage(db.Model):
-    """Чат по конкретно произшествие."""
     __tablename__ = 'chat_message'
     id          = db.Column(db.Integer, primary_key=True)
     incident_id = db.Column(db.Integer, db.ForeignKey('incident.id'), nullable=False)
@@ -56,11 +81,10 @@ class ChatMessage(db.Model):
 
 
 class GlobalMessage(db.Model):
-    """Оперативен чат — само admin + firefighter, не е обвързан с произшествие."""
     __tablename__ = 'global_message'
     id   = db.Column(db.Integer, primary_key=True)
     user = db.Column(db.String(50), nullable=False)
-    role = db.Column(db.String(20), nullable=False)   # за цветово различаване
+    role = db.Column(db.String(20), nullable=False)
     text = db.Column(db.Text, nullable=False)
     ts   = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -85,7 +109,6 @@ class TeamMember(db.Model):
     vehicle_id = db.Column(db.Integer, db.ForeignKey('fire_vehicle.id'), nullable=True)
     status     = db.Column(db.String(20), default='available')
     user_id    = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    # GPS позиция (актуализира се от мобилното устройство)
     gps_lat    = db.Column(db.Float, nullable=True)
     gps_lon    = db.Column(db.Float, nullable=True)
     gps_updated = db.Column(db.DateTime, nullable=True)

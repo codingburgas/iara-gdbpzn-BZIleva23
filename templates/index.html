@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 </head>
-<body>
+<body data-role="{{ role }}">
 
 <div id="toastContainer"></div>
 
@@ -125,6 +125,12 @@
     <div class="panel-header">
         <span><i class="fas fa-clipboard-list"></i> Оперативен панел</span>
         <div style="display:flex;gap:5px;align-items:center;">
+            <!-- Бутон ПОТУШЕНО — само за admin и firefighter -->
+            {% if role in ['admin', 'firefighter'] %}
+            <button class="btn-xs btn-green" onclick="resolveIncident()" title="Маркирай като потушено">
+                <i class="fas fa-check-circle"></i> Потушено
+            </button>
+            {% endif %}
             <!-- GPS навигация — href се слага от JS при zoomTo -->
             <a id="navGoogleBtn" href="#" target="_blank" rel="noopener"
                class="btn-xs btn-green nav-btn" style="display:none;"
@@ -265,8 +271,8 @@
         <button class="close-btn" onclick="toggle('teamsPanel')">✕</button>
     </div>
     <div id="memberSummary" class="summary-bar">—</div>
-    <p style="font-size:11px;color:var(--muted);flex-shrink:0;">
-        💡 Натисни <strong>🚒 Изпрати</strong> за да изпратиш служител към избрания сигнал
+    <p id="teamsHint" style="font-size:11px;color:var(--muted);flex-shrink:0;">
+        💡 Избери сигнал от картата, после натисни <strong>🚒 Изпрати</strong>
     </p>
     <div id="membersList" class="scroll-list"></div>
     {% if role == 'admin' %}

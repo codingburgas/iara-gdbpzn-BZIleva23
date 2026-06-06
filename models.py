@@ -3,14 +3,13 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-
 class User(db.Model):
     __tablename__ = 'user'
     id       = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
     role     = db.Column(db.String(20), default='user')  # admin / firefighter / user
-
+    member_profile = db.relationship('TeamMember', backref='user_account', uselist=False, lazy=True)
 
 class Incident(db.Model):
     __tablename__ = 'incident'
@@ -21,7 +20,6 @@ class Incident(db.Model):
     description = db.Column(db.Text, default='')
     timestamp   = db.Column(db.DateTime, default=datetime.utcnow)
     status      = db.Column(db.String(20), default='active')  # active / resolved
-    # Граждански сигнали
     injured        = db.Column(db.Boolean, default=False)
     injured_count  = db.Column(db.Integer, default=0)
     hazmat         = db.Column(db.Boolean, default=False)
@@ -34,20 +32,16 @@ class Incident(db.Model):
     photos      = db.relationship('IncidentPhoto', backref='incident', lazy=True, cascade='all, delete-orphan')
     assignments = db.relationship('AssignedTeam',  backref='incident', lazy=True, cascade='all, delete-orphan')
 
-
 class IncidentPhoto(db.Model):
-    """Снимки прикачени към произшествие."""
     __tablename__ = 'incident_photo'
     id          = db.Column(db.Integer, primary_key=True)
     incident_id = db.Column(db.Integer, db.ForeignKey('incident.id'), nullable=False)
-    filename    = db.Column(db.String(200), nullable=False)   # UUID filename на диска
-    original    = db.Column(db.String(200), default='')       # оригинално иĥé на файла
+    filename    = db.Column(db.String(200), nullable=False)
+    original    = db.Column(db.String(200), default='')
     uploaded_by = db.Column(db.String(50), default='')
     ts          = db.Column(db.DateTime, default=datetime.utcnow)
 
-
 class AssignedTeam(db.Model):
-    """Екип / служител изпратен към произшествие."""
     __tablename__ = 'assigned_team'
     id          = db.Column(db.Integer, primary_key=True)
     incident_id = db.Column(db.Integer, db.ForeignKey('incident.id'), nullable=False)
@@ -55,9 +49,7 @@ class AssignedTeam(db.Model):
     assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
     assigned_by = db.Column(db.String(50), default='')
     status      = db.Column(db.String(20), default='dispatched')  # dispatched / on_scene / returned
-
     member = db.relationship('TeamMember', backref='assignments', lazy=True)
-
 
 class Task(db.Model):
     __tablename__ = 'task'
@@ -70,7 +62,6 @@ class Task(db.Model):
     created_at   = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
 
-
 class ChatMessage(db.Model):
     __tablename__ = 'chat_message'
     id          = db.Column(db.Integer, primary_key=True)
@@ -79,7 +70,6 @@ class ChatMessage(db.Model):
     text        = db.Column(db.Text, nullable=False)
     ts          = db.Column(db.DateTime, default=datetime.utcnow)
 
-
 class GlobalMessage(db.Model):
     __tablename__ = 'global_message'
     id   = db.Column(db.Integer, primary_key=True)
@@ -87,7 +77,6 @@ class GlobalMessage(db.Model):
     role = db.Column(db.String(20), nullable=False)
     text = db.Column(db.Text, nullable=False)
     ts   = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 class FireVehicle(db.Model):
     __tablename__ = 'fire_vehicle'
@@ -100,7 +89,6 @@ class FireVehicle(db.Model):
     status       = db.Column(db.String(20),  default='available')
     water_cap_l  = db.Column(db.Integer, default=0)
     notes        = db.Column(db.String(200), default='')
-
 
 class TeamMember(db.Model):
     __tablename__ = 'team_member'
@@ -115,7 +103,6 @@ class TeamMember(db.Model):
 
     vehicle = db.relationship('FireVehicle', backref='crew', lazy=True)
     shifts  = db.relationship('Shift', backref='member', lazy=True, cascade='all, delete-orphan')
-
 
 class Shift(db.Model):
     __tablename__ = 'shift'

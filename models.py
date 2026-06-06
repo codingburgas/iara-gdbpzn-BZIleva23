@@ -25,7 +25,7 @@ class Incident(db.Model):
     hazmat         = db.Column(db.Boolean, default=False)
     reporter_phone = db.Column(db.String(30), default='')
     reporter_name  = db.Column(db.String(100), default='')
-    source         = db.Column(db.String(20), default='operator')  # operator / citizen / 112
+    source         = db.Column(db.String(20), default='operator')
 
     tasks       = db.relationship('Task',          backref='incident', lazy=True, cascade='all, delete-orphan')
     messages    = db.relationship('ChatMessage',   backref='incident', lazy=True, cascade='all, delete-orphan')
@@ -48,7 +48,7 @@ class AssignedTeam(db.Model):
     member_id   = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=False)
     assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
     assigned_by = db.Column(db.String(50), default='')
-    status      = db.Column(db.String(20), default='dispatched')  # dispatched / on_scene / returned
+    status      = db.Column(db.String(20), default='dispatched')
     member = db.relationship('TeamMember', backref='assignments', lazy=True)
 
 class Task(db.Model):

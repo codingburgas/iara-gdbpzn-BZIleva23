@@ -1,23 +1,54 @@
 <!DOCTYPE html>
-<html lang="bg" data-theme="dark">
+<html lang="bg">
 <head>
-    <meta charset="UTF-8"><title>PHOENIX — Вход</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <title>PHOENIX - Вход в системата</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; }
+    </style>
 </head>
-<body class="auth-page">
-    <div class="auth-box" id="lb">
-        <h2><i class="fas fa-fire"></i> PHOENIX</h2>
-        {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
-        <form method="POST">
-            <input type="text"     name="username" placeholder="Потребителско име" required>
-            <input type="password" name="password" placeholder="Парола" required style="margin-top:7px;">
-            <button type="submit" class="btn btn-red"><i class="fas fa-sign-in-alt"></i> ВЛИЗАНЕ</button>
+<body class="h-screen flex items-center justify-center font-sans">
+
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-2xl">
+        <div class="text-center mb-6">
+            <i class="fa-solid fa-fire-glow text-red-500 text-4xl mb-2 animate-pulse"></i>
+            <h1 class="text-2xl font-black tracking-wider text-white">PHOENIX БГ</h1>
+            <p class="text-xs text-slate-400 mt-1 uppercase tracking-widest">Национална Диспечерска Система</p>
+        </div>
+
+        <form action="" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Потребителско име</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i class="fa-solid fa-user"></i>
+                    </span>
+                    <input type="text" name="username" required placeholder="Въведете потребител..." class="w-full bg-slate-950 border border-slate-800 rounded-md pl-10 pr-3 py-2.5 text-sm text-white focus:outline-none focus:border-red-500 transition">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Парола</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i class="fa-solid fa-lock"></i>
+                    </span>
+                    <input type="password" name="password" required placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-md pl-10 pr-3 py-2.5 text-sm text-white focus:outline-none focus:border-red-500 transition">
+                </div>
+            </div>
+
+            <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold text-sm py-3 rounded-md transition tracking-wide shadow-lg cursor-pointer mt-2">
+                ВХОД В СИСТЕМАТА
+            </button>
         </form>
-        <p>Нямате акаунт? <a href="{{ url_for('register') }}">Регистрирай се</a></p>
-        <p class="hint-msg">Default admin: <strong>admin / admin123</strong></p>
+
+        <div class="mt-6 border-t border-slate-800/60 pt-4 text-center space-y-2">
+            <p class="text-sm text-slate-400">Нямате акаунт? <a href="{{ url_for('register') }}" class="text-red-400 hover:underline font-bold">Регистрирай се тук</a></p>
+            <p class="text-[11px] text-slate-500">Достъпът за управление е разрешен само за служители на МВР-ГДПБЗН.</p>
+        </div>
     </div>
-    <script>anime({targets:'#lb', scale:[.88,1], opacity:[0,1], duration:900, easing:'easeOutBack'});</script>
+
 </body>
 </html>

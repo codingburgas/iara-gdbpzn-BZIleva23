@@ -1,110 +1,109 @@
 <!DOCTYPE html>
-<html lang="bg" data-theme="dark">
+<html lang="bg">
 <head>
-    <meta charset="UTF-8"><title>PHOENIX — Регистрация</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <title>PHOENIX - Регистрация на наблюдател</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
     <style>
-        .strength-bar-wrap {
-            width: 100%;
-            height: 5px;
-            background: var(--border2);
-            border-radius: 3px;
-            margin-top: 5px;
-            overflow: hidden;
-        }
-        .strength-bar {
-            height: 100%;
-            width: 0%;
-            border-radius: 3px;
-            transition: width 0.3s, background 0.3s;
-        }
-        .strength-label {
-            font-size: 11px;
-            margin-top: 4px;
-            font-weight: 600;
-            transition: color 0.3s;
-        }
-        .strength-hints {
-            font-size: 10px;
-            color: var(--muted);
-            margin-top: 3px;
-            line-height: 1.5;
-        }
-        .hint-ok   { color: #4ade80; }
-        .hint-fail { color: var(--muted); }
+        body { background-color: #0f172a; color: #e2e8f0; }
     </style>
 </head>
-<body class="auth-page">
-    <div class="auth-box" id="rb" style="width:330px;">
-        <h2><i class="fas fa-user-plus"></i> РЕГИСТРАЦИЯ</h2>
-        {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
-        <form method="POST">
-            <input type="text" name="username" placeholder="Потребителско име" required>
-            <input type="password" name="password" id="pwdInput" placeholder="Парола"
-                   required style="margin-top:7px;" oninput="checkStrength(this.value)">
+<body class="h-screen flex items-center justify-center font-sans">
 
-            <!-- Лента за сила -->
-            <div class="strength-bar-wrap">
-                <div class="strength-bar" id="strengthBar"></div>
-            </div>
-            <div class="strength-label" id="strengthLabel" style="color:var(--muted);">
-                Въведи парола
-            </div>
-            <div class="strength-hints" id="strengthHints"></div>
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-2xl">
+        <div class="text-center mb-6">
+            <i class="fa-solid fa-user-plus text-blue-500 text-4xl mb-2"></i>
+            <h1 class="text-2xl font-black text-white">Нова Регистрация</h1>
+            <p class="text-xs text-slate-400 mt-1">Създаване на акаунт за гражданин/наблюдател</p>
+        </div>
 
-            <button type="submit" class="btn btn-red" style="margin-top:12px;">
-                <i class="fas fa-check"></i> РЕГИСТРИРАЙ
+        <form action="" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Потребителско име</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i class="fa-solid fa-user"></i>
+                    </span>
+                    <input type="text" name="username" required placeholder="Изберете потребителско име..." class="w-full bg-slate-950 border border-slate-800 rounded-md pl-10 pr-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Парола</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i class="fa-solid fa-lock"></i>
+                    </span>
+                    <input type="password" id="password" name="password" required placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-md pl-10 pr-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-400">Сила на паролата:</span>
+                    <span id="strength-text" class="font-bold text-red-500">Твърде кратка</span>
+                </div>
+                <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80">
+                    <div id="strength-bar" class="w-0 h-full bg-red-500 transition-all duration-300"></div>
+                </div>
+                <p class="text-[10px] text-slate-500">Препоръчително: 6+ символа, цифра и главна буква.</p>
+            </div>
+
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-3 rounded-md transition tracking-wide shadow-lg cursor-pointer mt-4">
+                СЪЗДАЙ АКАУНТ
             </button>
         </form>
-        <p>Вече имате акаунт? <a href="{{ url_for('login') }}">Влезте</a></p>
+
+        <div class="mt-4 text-center">
+            <a href="{{ url_for('login') }}" class="text-xs text-slate-400 hover:text-white transition"><i class="fa-solid fa-arrow-left mr-1"></i> Върни се към вход</a>
+        </div>
     </div>
 
     <script>
-        anime({ targets:'#rb', scale:[.88,1], opacity:[0,1], duration:900, easing:'easeOutBack' });
+        const passwordInput = document.getElementById('password');
+        const strengthBar = document.getElementById('strength-bar');
+        const strengthText = document.getElementById('strength-text');
 
-        function checkStrength(pwd) {
-            const bar    = document.getElementById('strengthBar');
-            const label  = document.getElementById('strengthLabel');
-            const hints  = document.getElementById('strengthHints');
+        passwordInput.addEventListener('input', () => {
+            const val = passwordInput.value;
+            let score = 0;
 
-            if (!pwd) {
-                bar.style.width = '0%';
-                label.textContent = 'Въведи парола';
-                label.style.color = 'var(--muted)';
-                hints.innerHTML = '';
+            if (val.length === 0) {
+                strengthText.innerText = "Празно";
+                strengthBar.style.width = "0%";
                 return;
             }
 
-            // Критерии
-            const checks = [
-                { test: pwd.length >= 8,          text: 'Минимум 8 символа' },
-                { test: /[A-Z]/.test(pwd),         text: 'Главна буква (A-Z)' },
-                { test: /[a-z]/.test(pwd),         text: 'Малка буква (a-z)' },
-                { test: /[0-9]/.test(pwd),         text: 'Цифра (0-9)' },
-                { test: /[^A-Za-z0-9]/.test(pwd),  text: 'Специален символ (!@#$...)' },
-            ];
+            // 1. Проверка за дължина
+            if (val.length >= 6) score++;
+            if (val.length >= 10) score++;
+            // 2. Съдържа ли цифра
+            if (/[0-9]/.test(val)) score++;
+            // 3. Съдържа ли главна буква
+            if (/[A-Z]/.test(val)) score++;
+            // 4. Съдържа ли специален символ
+            if (/[^A-Za-z0-9]/.test(val)) score++;
 
-            const score = checks.filter(c => c.test).length;
-
-            // Лента
-            const pct    = (score / checks.length) * 100;
-            const colors = ['#ef4444','#ef4444','#f59e0b','#22c55e','#22c55e'];
-            const labels = ['Много слаба','Слаба','Средна','Силна','Много силна'];
-
-            bar.style.width      = pct + '%';
-            bar.style.background = colors[score - 1] || '#ef4444';
-            label.textContent    = score === 0 ? 'Въведи парола' : labels[score - 1];
-            label.style.color    = colors[score - 1] || 'var(--muted)';
-
-            // Hints
-            hints.innerHTML = checks.map(c =>
-                `<span class="${c.test ? 'hint-ok' : 'hint-fail'}">
-                    ${c.test ? '✓' : '○'} ${c.text}
-                </span><br>`
-            ).join('');
-        }
+            // Визуализация базирана на точките (score)
+            if (score <= 1) {
+                strengthText.innerText = "Слаба ❌";
+                strengthText.className = "font-bold text-red-500";
+                strengthBar.className = "h-full bg-red-500 transition-all";
+                strengthBar.style.width = "25%";
+            } else if (score === 2 || score === 3) {
+                strengthText.innerText = "Средна ⚠️";
+                strengthText.className = "font-bold text-amber-500";
+                strengthBar.className = "h-full bg-amber-500 transition-all";
+                strengthBar.style.width = "60%";
+            } else {
+                strengthText.innerText = "Сигурна  🔥";
+                strengthText.className = "font-bold text-green-500";
+                strengthBar.className = "h-full bg-green-500 transition-all";
+                strengthBar.style.width = "100%";
+            }
+        });
     </script>
+
 </body>
 </html>

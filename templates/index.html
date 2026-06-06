@@ -1,357 +1,156 @@
 <!DOCTYPE html>
-<html lang="bg" data-theme="dark">
+<html lang="bg">
 <head>
     <meta charset="UTF-8">
-    <title>PHOENIX — Оперативна система</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>PHOENIX - Национална Диспечерска Система</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    </style>
 </head>
-<body data-role="{{ role }}">
+<body class="h-screen flex flex-col font-sans">
 
-<div id="toastContainer"></div>
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-fire-glow text-red-500 text-2xl animate-pulse"></i>
+            <h1 class="text-xl font-black tracking-wider text-white">PHOENIX БГ</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="text-sm bg-slate-800 px-3 py-1.5 rounded-md text-slate-300">
+                Роля: <strong class="text-white uppercase font-mono">[{{ role }}]</strong> | Диспечер: <strong class="text-white">{{ user }}</strong>
+            </span>
+            <a href="{{ url_for('logout') }}" class="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-md transition">Изход</a>
+        </div>
+    </header>
 
-<!-- ════════════ ЛЯВ SIDEBAR ════════════ -->
-<div id="sidebar">
-    <div class="sidebar-header">
-        <h2><i class="fas fa-fire"></i> PHOENIX</h2>
-        <p class="subtext">
-            {{ user }}
-            <span class="role-badge role-{{ role }}">{{ role }}</span>
-        </p>
-    </div>
+    <main class="flex-1 flex overflow-hidden p-4 gap-4">
 
-    <input type="text" id="smartSearch" class="search-box"
-           placeholder="🔍 Търси произшествие..." oninput="runSmartSearch()">
-
-    {% if role in ['admin', 'firefighter'] %}
-    <button class="btn btn-red" onclick="toggle('addForm')">
-        <i class="fas fa-plus"></i> НОВ СИГНАЛ
-    </button>
-    <div id="addForm" style="display:none;">
-        <!-- enctype="multipart/form-data" за снимки -->
-        <form action="{{ url_for('add_incident') }}" method="POST"
-              enctype="multipart/form-data" class="add-form">
-            <input type="text"   name="title"       placeholder="Тип (напр. Горски пожар)" required>
-            <input type="text"   name="description" placeholder="Описание">
-            <div class="row-2">
-                <input type="number" step="any" name="lat" placeholder="Latitude"  required>
-                <input type="number" step="any" name="lon" placeholder="Longitude" required>
+        <div class="flex-1 flex flex-col gap-4 overflow-hidden">
+            <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden relative shadow-lg">
+                {{ map_html | safe }}
             </div>
-            <!-- Снимки при добавяне -->
-            <label class="file-label">
-                <i class="fas fa-camera"></i> Прикачи снимки
-                <input type="file" name="photos" multiple accept="image/*" style="display:none;">
-            </label>
-            <div id="addFormPhotoPreview" class="photo-preview-row"></div>
-            <button type="submit" class="btn btn-green">
-                <i class="fas fa-bolt"></i> АКТИВИРАЙ
-            </button>
-        </form>
-    </div>
-    {% endif %}
 
-    {% if role == 'user' %}
-    <button class="btn btn-amber" onclick="openCitizenForm()">
-        <i class="fas fa-exclamation-circle"></i> ПОДАЙ СИГНАЛ
-    </button>
-    {% endif %}
-
-    <div class="section-label">ПРОИЗШЕСТВИЯ</div>
-    <div id="incidentFeed">
-        {% for inc in incidents %}
-        <div class="glass-item {% if inc.status=='resolved' %}resolved{% endif %} {% if inc.source=='citizen' %}citizen-inc{% endif %}"
-             data-inc-id="{{ inc.id }}"
-             onclick="zoomTo({{ inc.lat }}, {{ inc.lon }}, {{ inc.id }})">
-            <div class="inc-header">
-                <strong>
-                    {% if inc.source == 'citizen' %}<span class="citizen-tag">👤</span>{% endif %}
-                    {{ inc.title }}
-                </strong>
-                <span class="inc-badge {{ inc.status }}">
-                    {{ 'Активно' if inc.status == 'active' else 'Приключило' }}
-                </span>
+            {% if role == 'admin' %}
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shrink-0">
+                <h3 class="text-sm font-bold text-red-400 mb-3 uppercase"><i class="fa-solid fa-plus mr-2"></i>Генерация на нов сигнал (Операторски достъп)</h3>
+                <form action="{{ url_for('add_incident') }}" method="POST" class="flex flex-wrap gap-3 items-end">
+                    <div class="flex-1 min-w-[200px]">
+                        <input type="text" name="title" required placeholder="Заглавие на произшествието..." class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500">
+                    </div>
+                    <div class="w-32">
+                        <input type="number" step="any" name="lat" required placeholder="Ширина" class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-sm text-white focus:outline-none">
+                    </div>
+                    <div class="w-32">
+                        <input type="number" step="any" name="lon" required placeholder="Дължина" class="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-sm text-white focus:outline-none">
+                    </div>
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-sm px-5 py-2.5 rounded-md font-bold cursor-pointer">ОБЯВИ СИГНАЛ</button>
+                </form>
             </div>
-            {% if inc.injured %}
-            <div class="inc-alert">⚠️ Ранени: {{ inc.injured_count }}</div>
+            {% else %}
+            <div class="bg-slate-900/50 border border-slate-800/60 rounded-xl p-3 text-center text-xs text-slate-500">
+                🔒 Твоят акаунт няма права да генерира и пуска нови сигнали към системата.
+            </div>
             {% endif %}
-            {% if inc.hazmat %}
-            <div class="inc-alert hazmat-alert">☢️ Опасни вещества</div>
-            {% endif %}
-            <p>{{ inc.description or '—' }}</p>
-            <small class="inc-time">{{ inc.timestamp.strftime('%d.%m %H:%M') }}</small>
         </div>
-        {% else %}
-        <p class="empty-hint">Няма произшествия</p>
-        {% endfor %}
-    </div>
 
-    <div class="sidebar-footer">
-        <button class="btn btn-icon" onclick="toggleT()" title="Тема">
-            <i id="ti" class="fas fa-sun"></i>
-        </button>
-        <button class="btn btn-icon" onclick="toggle('teamsPanel'); loadMembers();" title="Екипи">
-            <i class="fas fa-users"></i>
-        </button>
-        <button class="btn btn-icon" onclick="toggle('vehiclesPanel'); loadVehicles();" title="Автомобили">
-            <i class="fas fa-truck"></i>
-        </button>
-        {% if role in ['admin', 'firefighter'] %}
-        <button class="btn btn-icon" onclick="toggle('gchatPanel'); loadGChat(); if(!gchatInterval) gchatInterval=setInterval(loadGChat,8000);" title="Оперативен чат">
-            <i class="fas fa-headset"></i>
-        </button>
-        {% endif %}
-        {% if role == 'admin' %}
-        <button class="btn btn-icon" onclick="toggle('adminPanel')" title="Администрация">
-            <i class="fas fa-cog"></i>
-        </button>
-        {% endif %}
-        {% if role == 'firefighter' %}
-        <button class="btn btn-red btn-icon" onclick="sendSOS()" title="SOS">
-            <i class="fas fa-exclamation-triangle"></i>
-        </button>
-        {% endif %}
-        <a href="{{ url_for('logout') }}" class="btn btn-icon" title="Изход">
-            <i class="fas fa-power-off"></i>
-        </a>
-    </div>
-</div>
+        <div class="w-96 flex flex-col gap-4 overflow-hidden shrink-0">
 
-<!-- ════════════ КАРТА ════════════ -->
-<div id="map">{{ map_html|safe }}</div>
+            <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden">
+                <h3 class="text-sm font-bold text-blue-400 mb-3 uppercase">🚒 Дежурен Състав</h3>
+                <div class="flex-1 overflow-y-auto custom-scroll space-y-2">
+                    {% for member in members %}
+                    <div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="text-sm font-bold text-white">{{ member.name }}</h4>
+                                <p class="text-xs text-slate-400">Автомобил: {% if member.vehicle %} {{ member.vehicle.call_sign }} {% else %} Няма зачислен {% endif %}</p>
+                            </div>
+                            <span class="text-[10px] px-2 py-0.5 rounded font-bold uppercase {{ 'bg-green-950 text-green-400' if member.status == 'available' else 'bg-red-950 text-red-400' }}">{{ member.status }}</span>
+                        </div>
 
-<!-- ════════════ ДЕСЕН ПАНЕЛ — Оперативен ════════════ -->
-<div id="incidentPanel" style="display:none;">
-    <div class="panel-header">
-        <span><i class="fas fa-clipboard-list"></i> Оперативен панел</span>
-        <div style="display:flex;gap:5px;align-items:center;">
-            <!-- Бутон ПОТУШЕНО — само за admin и firefighter -->
-            {% if role in ['admin', 'firefighter'] %}
-            <button class="btn-xs btn-green" onclick="resolveIncident()" title="Маркирай като потушено">
-                <i class="fas fa-check-circle"></i> Потушено
-            </button>
-            {% endif %}
-            <!-- GPS навигация — href се слага от JS при zoomTo -->
-            <a id="navGoogleBtn" href="#" target="_blank" rel="noopener"
-               class="btn-xs btn-green nav-btn" style="display:none;"
-               onclick="event.stopPropagation()">
-                <i class="fas fa-route"></i> Maps
-            </a>
-            <a id="navWazeBtn" href="#" target="_blank" rel="noopener"
-               class="btn-xs nav-btn" style="display:none;background:#00aff0;color:#fff;"
-               onclick="event.stopPropagation()">
-                <i class="fas fa-car"></i> Waze
-            </a>
-            <button class="close-btn" onclick="hidePanel()">✕</button>
+                        {% if role == 'admin' or role == 'firefighter' %}
+                        <div class="flex gap-1.5 mt-2">
+                            <button onclick="openAssignModal('{{ member.id }}', '{{ member.name }}')" class="flex-1 bg-blue-600 text-white text-xs py-1 px-2 rounded cursor-pointer">Изпрати към сигнал</button>
+                            <button onclick="toggleShift('{{ member.id }}', '{{ 'stop' if member.status != 'off_duty' else 'start' }}')" class="bg-slate-800 text-slate-300 text-xs py-1 px-2 rounded cursor-pointer"><i class="fa-solid fa-power-off"></i></button>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden">
+                <h3 class="text-sm font-bold text-amber-400 mb-2 uppercase">🏢 Пожарни Автомобили по Области</h3>
+
+                <div class="mb-3">
+                    <select id="regionFilter" onchange="filterVehicles()" class="w-full bg-slate-950 border border-slate-800 rounded border-slate-700 p-1.5 text-xs text-white">
+                        <option value="">-- Всички области в България --</option>
+                        <option value="София Град">София Град</option>
+                        <option value="Пловдив">Пловдив</option>
+                        <option value="Варна">Варна</option>
+                        <option value="Бургас">Бургас</option>
+                        <option value="Благоевград">Благоевград</option>
+                    </select>
+                </div>
+
+                <div id="vehiclesContainer" class="flex-1 overflow-y-auto custom-scroll space-y-2">
+                    {% for vehicle in vehicles %}
+                    <div class="vehicle-item bg-slate-950 border border-slate-800 rounded-lg p-2.5 flex justify-between items-center" data-region="{{ vehicle.region }}">
+                        <div>
+                            <span class="text-xs font-mono font-bold text-amber-400">{{ vehicle.call_sign }}</span>
+                            <span class="text-xs text-white ml-2">{{ vehicle.model }}</span>
+                            <p class="text-[10px] text-slate-400">{{ vehicle.station }} ({{ vehicle.region }})</p>
+                            <p class="text-[9px] text-slate-500">Вода: {{ vehicle.water_cap_l }} литра</p>
+                        </div>
+                        <span class="text-[10px] text-green-400 uppercase font-mono">{{ vehicle.status }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
         </div>
-    </div>
+    </main>
 
-    <!-- Изпратени екипи -->
-    <div class="panel-section">
-        <div class="section-label"><i class="fas fa-users"></i> ИЗПРАТЕНИ ЕКИПИ</div>
-        <div id="assignmentsList" class="assignments-list"></div>
-    </div>
+    <script>
+        function filterVehicles() {
+            const reg = document.getElementById('regionFilter').value;
+            document.querySelectorAll('.vehicle-item').forEach(item => {
+                item.style.display = (reg === "" || item.getAttribute('data-region') === reg) ? 'flex' : 'none';
+            });
+        }
 
-    <!-- Задачи -->
-    <div class="panel-section">
-        <div class="section-label"><i class="fas fa-tasks"></i> ЗАДАЧИ</div>
-        <div id="taskList" class="task-list"></div>
-        {% if role in ['admin', 'firefighter'] %}
-        <div class="add-row">
-            <select id="taskType" class="xs-select">
-                <option value="operative">🔥 Оперативна</option>
-                <option value="logistics">🚛 Логистична</option>
-                <option value="admin">📋 Административна</option>
-            </select>
-            <input type="text" id="newTaskInput" placeholder="Нова задача..."
-                   onkeydown="if(event.key==='Enter') addTask()">
-            <button class="btn-xs btn-green" onclick="addTask()">+</button>
-        </div>
-        {% endif %}
-    </div>
+        function openAssignModal(memberId, memberName) {
+            fetch('/incidents/list')
+                .then(res => res.json())
+                .then(incidents => {
+                    if (incidents.length === 0) { return alert('Няма активни сигнали.'); }
+                    let text = `Изберете сигнал за ${memberName}:\n\n`;
+                    incidents.forEach((inc, i) => { text += `${i + 1}. ${inc.title}\n`; });
+                    let choice = prompt(text + `\nНомер на сигнал:`);
+                    if (!choice) return;
+                    let idx = parseInt(choice) - 1;
+                    if (idx >= 0 && idx < incidents.length) {
+                        fetch(`/incident/${incidents[idx].id}/assign`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ member_id: memberId })
+                        }).then(res => {
+                            if (res.ok) { alert("🚒 ГОТОВО!"); location.reload(); }
+                        });
+                    }
+                });
+        }
 
-    <!-- Снимки -->
-    <div class="panel-section">
-        <div class="section-label"><i class="fas fa-images"></i> СНИМКИ</div>
-        <div id="photoGrid" class="photo-grid"></div>
-        {% if role in ['admin', 'firefighter'] %}
-        <label class="file-label" style="margin-top:4px;">
-            <i class="fas fa-upload"></i> Качи снимка
-            <input type="file" id="photoUploadInput" accept="image/*" style="display:none;"
-                   onchange="uploadPhoto()">
-        </label>
-        {% endif %}
-    </div>
-
-    <!-- Чат (само admin + firefighter) -->
-    {% if role in ['admin', 'firefighter'] %}
-    <div class="panel-section" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;">
-        <div class="section-label"><i class="fas fa-comments"></i> ЧАТ КАНАЛ</div>
-        <div id="templateButtons" class="tmpl-grid"></div>
-        <div id="chatMessages" class="chat-box"></div>
-        <div class="add-row">
-            <input type="text" id="chatInput" placeholder="Напиши съобщение..."
-                   onkeydown="if(event.key==='Enter') sendMsg()">
-            <button class="btn-xs btn-red" onclick="sendMsg()">
-                <i class="fas fa-paper-plane"></i>
-            </button>
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- ════════════ ОПЕРАТИВЕН ЧАТ ════════════ -->
-{% if role in ['admin', 'firefighter'] %}
-<div id="gchatPanel" style="display:none;">
-    <div class="panel-header">
-        <span><i class="fas fa-headset"></i> Оперативен чат</span>
-        <button class="close-btn" onclick="toggle('gchatPanel')">✕</button>
-    </div>
-    <p style="font-size:11px;color:var(--muted);flex-shrink:0;">Глобален канал — Admin и Firefighter</p>
-    <div id="gchatMessages" class="chat-box" style="flex:1;max-height:none;"></div>
-    <div class="add-row" style="flex-shrink:0;">
-        <input type="text" id="gchatInput" placeholder="Напиши съобщение..."
-               onkeydown="if(event.key==='Enter') sendGChat()">
-        <button class="btn-xs btn-red" onclick="sendGChat()">
-            <i class="fas fa-paper-plane"></i>
-        </button>
-    </div>
-</div>
-{% endif %}
-
-<!-- ════════════ ГРАЖДАНСКИ СИГНАЛ ════════════ -->
-{% if role == 'user' %}
-<div id="citizenPanel" style="display:none;">
-    <div class="panel-header">
-        <span><i class="fas fa-exclamation-circle"></i> Подай сигнал</span>
-        <button class="close-btn" onclick="toggle('citizenPanel')">✕</button>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1;padding-right:2px;">
-        <div class="section-label">ТИП ПРОИЗШЕСТВИЕ</div>
-        <select id="cType" style="width:100%;">
-            <option value="Пожар">🔥 Пожар</option>
-            <option value="Горски пожар">🌲 Горски пожар</option>
-            <option value="Наводнение">🌊 Наводнение</option>
-            <option value="ПТП">🚗 Пътно-транспортно произшествие</option>
-            <option value="Газова авария">💨 Газова авария</option>
-            <option value="Срутване">🏚️ Срутване на сграда</option>
-            <option value="Друго">❓ Друго</option>
-        </select>
-        <textarea id="cDesc" placeholder="Опиши ситуацията..."
-                  style="width:100%;padding:8px;background:var(--card-bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;resize:vertical;min-height:60px;outline:none;"></textarea>
-        <div class="section-label">МЕСТОПОЛОЖЕНИЕ</div>
-        <div class="row-2">
-            <input type="number" step="any" id="cLat" placeholder="Latitude">
-            <input type="number" step="any" id="cLon" placeholder="Longitude">
-        </div>
-        <button class="btn btn-icon" style="font-size:11px;" onclick="navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>{document.getElementById('cLat').value=p.coords.latitude.toFixed(6);document.getElementById('cLon').value=p.coords.longitude.toFixed(6);})">
-            <i class="fas fa-location-arrow"></i> Използвай моята локация
-        </button>
-        <div class="section-label">ПОСТРАДАЛИ</div>
-        <label class="check-row"><input type="checkbox" id="cInjured" onchange="toggleInjuredCount()"><span>Има пострадали</span></label>
-        <div id="injuredCountRow" style="display:none;" class="add-row">
-            <span style="font-size:12px;white-space:nowrap;">Брой:</span>
-            <input type="number" id="cInjuredCount" min="0" value="1" style="width:70px;">
-        </div>
-        <label class="check-row"><input type="checkbox" id="cHazmat"><span>Опасни вещества</span></label>
-        <div class="section-label">КОНТАКТ (незадължително)</div>
-        <input type="text" id="cName"  placeholder="Вашето иĥе">
-        <input type="text" id="cPhone" placeholder="Телефон">
-        <button class="btn btn-red" onclick="submitCitizenReport()">
-            <i class="fas fa-paper-plane"></i> ИЗПРАТИ СИГНАЛ
-        </button>
-    </div>
-</div>
-{% endif %}
-
-<!-- ════════════ ПАНЕЛ — Екипи ════════════ -->
-<div id="teamsPanel" style="display:none;">
-    <div class="panel-header">
-        <span><i class="fas fa-users"></i> Наличност на екипи</span>
-        <button class="close-btn" onclick="toggle('teamsPanel')">✕</button>
-    </div>
-    <div id="memberSummary" class="summary-bar">—</div>
-    <p id="teamsHint" style="font-size:11px;color:var(--muted);flex-shrink:0;">
-        💡 Избери сигнал от картата, после натисни <strong>🚒 Изпрати</strong>
-    </p>
-    <div id="membersList" class="scroll-list"></div>
-    {% if role == 'admin' %}
-    <div class="panel-section" style="flex-shrink:0;margin-top:8px;">
-        <div class="section-label">ДОБАВИ СЛУЖИТЕЛ</div>
-        <div class="add-row" style="flex-wrap:wrap;gap:5px;">
-            <input type="text" id="newMemberName" placeholder="Три имена" style="flex:1;min-width:110px;">
-            <select id="newMemberVehicle" class="xs-select" style="flex:1;min-width:110px;">
-                <option value="">— Автомобил —</option>
-                {% for v in vehicles %}
-                <option value="{{ v.id }}">{{ v.call_sign }} ({{ v.region }})</option>
-                {% endfor %}
-            </select>
-            <button class="btn-xs btn-green" onclick="addMember()">+ Добави</button>
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- ════════════ ПАНЕЛ — Пожарни коли ════════════ -->
-<div id="vehiclesPanel" style="display:none;">
-    <div class="panel-header">
-        <span><i class="fas fa-truck"></i> Пожарни автомобили</span>
-        <button class="close-btn" onclick="toggle('vehiclesPanel')">✕</button>
-    </div>
-    <div class="add-row" style="flex-shrink:0;margin-bottom:8px;">
-        <select id="vehicleRegionFilter" class="xs-select" style="flex:1;" onchange="loadVehicles(this.value)">
-            <option value="">— Всички региони —</option>
-            {% for v in vehicles|groupby('region') %}
-            <option value="{{ v.grouper }}">{{ v.grouper }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div id="vehiclesList" class="scroll-list"></div>
-</div>
-
-<!-- ════════════ ПАНЕЛ — Администрация ════════════ -->
-{% if role == 'admin' %}
-<div id="adminPanel" style="display:none;">
-    <div class="panel-header">
-        <span><i class="fas fa-cog"></i> Потребители</span>
-        <button class="close-btn" onclick="toggle('adminPanel')">✕</button>
-    </div>
-    <div class="scroll-list">
-        {% for u in users %}
-        <div class="user-row">
-            <span class="user-name">{{ u.username }}</span>
-            <span id="rb-{{ u.id }}" class="role-badge role-{{ u.role }}">{{ u.role }}</span>
-            <select class="xs-select" onchange="changeRole({{ u.id }}, this.value)">
-                <option value="">— смени —</option>
-                <option value="admin">admin</option>
-                <option value="firefighter">firefighter</option>
-                <option value="user">user</option>
-            </select>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
-<script src="{{ url_for('static', filename='main.js') }}"></script>
-
-<script>
-// Preview на снимките преди качване в add form
-document.querySelector('input[name="photos"]')?.addEventListener('change', function() {
-    const preview = document.getElementById('addFormPhotoPreview');
-    if (!preview) return;
-    preview.innerHTML = '';
-    Array.from(this.files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = e => {
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.className = 'preview-thumb';
-            preview.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-    });
-});
-</script>
+        function toggleShift(memberId, action) {
+            fetch(`/members/${memberId}/shift`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action })
+            }).then(res => { if (res.ok) location.reload(); });
+        }
+    </script>
 </body>
 </html>

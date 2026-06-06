@@ -58,6 +58,30 @@
 
         <div class="w-96 flex flex-col gap-4 overflow-hidden shrink-0">
 
+            {% if role == 'admin' %}
+            <div class="h-52 bg-slate-900 border-2 border-red-900/40 rounded-xl p-4 flex flex-col overflow-hidden shadow-lg">
+                <h3 class="text-xs font-black text-red-400 mb-2.5 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-gear"></i> Управление на права (Общо: {{ users|length }})
+                </h3>
+                <div class="flex-1 overflow-y-auto custom-scroll space-y-1.5 pr-1">
+                    {% for u in users %}
+                    <div class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 flex justify-between items-center">
+                        <div class="truncate mr-2">
+                            <span class="text-xs font-bold text-slate-200">{{ u.username }}</span>
+                        </div>
+                        <div>
+                            <select onchange="updateUserRole('{{ u.id }}', this.value)" class="bg-slate-900 border border-slate-700 text-[11px] rounded px-1.5 py-1 text-slate-300 focus:outline-none focus:border-red-500 font-medium">
+                                <option value="user" {% if u.role == 'user' %}selected{% endif %}>User</option>
+                                <option value="firefighter" {% if u.role == 'firefighter' %}selected{% endif %}>Firefighter</option>
+                                <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden">
                 <h3 class="text-sm font-bold text-blue-400 mb-3 uppercase">🚒 Дежурен Състав</h3>
                 <div class="flex-1 overflow-y-auto custom-scroll space-y-2">
@@ -115,6 +139,25 @@
     </main>
 
     <script>
+        // Функция за AJAX смяна на роля
+        function updateUserRole(userId, newRole) {
+            fetch(`/user/${userId}/role`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: newRole })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    alert('🔥 Ролята беше обновена успешно!');
+                    location.reload(); // Презареждаме, за да влязат в сила скритите/показаните бутони
+                } else {
+                    alert('Грешка: ' + data.message);
+                }
+            })
+            .catch(err => alert('Сървърна грешка при обновяване на ролята.'));
+        }
+
         function filterVehicles() {
             const reg = document.getElementById('regionFilter').value;
             document.querySelectorAll('.vehicle-item').forEach(item => {

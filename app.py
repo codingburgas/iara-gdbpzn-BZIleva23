@@ -68,7 +68,7 @@ def index():
     if not ok(): return redirect(url_for('login'))
 
     incidents = Incident.query.order_by(Incident.timestamp.desc()).all()
-    users = User.query.all()
+    users = User.query.order_by(User.username).all()  # Извличаме всички регистрирани потребители
     members = TeamMember.query.all()
     vehicles = FireVehicle.query.order_by(FireVehicle.region, FireVehicle.call_sign).all()
 
@@ -111,7 +111,6 @@ def list_active_incidents():
 
 @app.route('/incident/<int:inc_id>/assign', methods=['POST'])
 def assign_member(inc_id):
-    # Достъпно само за Админ и Пожарникар
     if not role('admin', 'firefighter'): abort(403)
     data = request.get_json(silent=True) or {}
     member_id = data.get('member_id')
@@ -128,7 +127,6 @@ def assign_member(inc_id):
 
 @app.route('/add_incident', methods=['POST'])
 def add_incident():
-    # Сигнали може да добавя ЕДИНСТВЕНО Администраторът
     if not role('admin'): abort(403)
     try:
         inc = Incident(title=request.form.get('title', 'Без заглавие'), description=request.form.get('description', ''),
@@ -154,6 +152,26 @@ def toggle_shift(mid):
         member.status = 'off_duty'
     db.session.commit()
     return jsonify({'status': 'ok'})
+
+
+# ФУНКЦИЯ ЗА СМЯНА НА РОЛЯ ОT АДМИНИСТРАТОР
+@app.route('/user/<int:uid>/role', methods=['POST'])
+def change_role(uid):
+    if not role('admin'): abort(403)
+    data = request.get_json(silent=True) or {}
+    new_role = data.get('role')
+
+    if new_role in ['admin', 'firefighter', 'user']:
+        u = User.query.get_or_404(uid)
+
+        # Предпазна мярка: Не позволяваме на текущия админ сам да си свали правата
+        if u.id == session['user_id'] and new_role != 'admin':
+            return jsonify({'status': 'error', 'message': 'Не можете да премахнете собствените си права!'}), 400
+
+        u.role = new_role
+        db.session.commit()
+        return jsonify({'status': 'ok'})
+    return jsonify({'status': 'error', 'message': 'Невалидна роля'}), 400
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -182,7 +200,6 @@ def register():
         if User.query.filter_by(username=username).first():
             return "<h1 style='color:red; text-align:center; font-family:sans-serif; margin-top:50px;'>❌ Потребителското име вече е заето! <a href='/register'>Опитай пак</a></h1>"
 
-        # Новорегистрираните потребители получават базова роля 'user'
         new_user = User(username=username, password=password, role='user')
         db.session.add(new_user)
         db.session.commit()

@@ -1,6 +1,6 @@
 from flask import (Flask, render_template, request, redirect,
                    url_for, session, abort, jsonify)
-from models import (db, User, Incident, TeamMember, Shift, FireVehicle, AssignedTeam, IncidentPhoto)
+from models import (db, User, Incident, TeamMember, FireVehicle, AssignedTeam, IncidentPhoto, Task, TacticalMarker)
 import folium, os
 from datetime import datetime
 
@@ -65,31 +65,28 @@ def index():
     incidents = Incident.query.order_by(Incident.timestamp.desc()).all()
     users = User.query.order_by(User.username).all()
     members = TeamMember.query.all()
-    vehicles = FireVehicle.query.order_by(FireVehicle.region, FireVehicle.call_sign).all()
 
-    # Центрираме картата автоматично, за да обхване цяла България
+    tasks = Task.query.all()
+    tactical_markers = TacticalMarker.query.all()
+
     m = folium.Map(location=[42.7339, 25.4858], zoom_start=7, zoom_control=True)
     folium.TileLayer('CartoDB dark_matter', name='Dark Mode').add_to(m)
 
     for inc in incidents:
         color = 'red' if inc.status == 'active' else 'gray'
-        icon_type = 'fire' if inc.source == 'operator' else 'bullhorn'
         photo = IncidentPhoto.query.filter_by(incident_id=inc.id).first()
-        photo_html = ""
+        photo_html = f"""<div style='margin-top:8px;'><button onclick='window.parent.showImageModal("{url_for('static', filename=f'uploads/{photo.filename}')}")' style='background:#10b981; color:white; border:0; padding:4px 8px; border-radius:4px; font-weight:bold; width:100%; cursor:pointer;'>👁️ Виж снимка</button></div>""" if photo and role(
+            'admin', 'firefighter') else ""
 
-        if photo and role('admin', 'firefighter'):
-            img_url = url_for('static', filename=f'uploads/{photo.filename}')
-            photo_html = f"""<div style='margin-top:8px;'><button onclick='window.parent.showImageModal("{img_url}")' style='background:#10b981; color:white; border:0; padding:4px 8px; border-radius:4px; font-weight:bold; width:100%; cursor:pointer;'>👁️ Виж прикачената снимка</button></div>"""
-
-        services = []
-        if inc.injured: services.append(f"⚠️ Ранени: {inc.injured_count} лица")
-        if "[ИЗИСКВА ЛИНЕЙКА]" in (inc.description or ""): services.append("🚑 Линейка")
-        if "[ИЗИСКВА ПОЛИЦИЯ]" in (inc.description or ""): services.append("Police")
-        services_html = "<br>".join(services) if services else "Няма критични сигнали"
-
-        popup_html = f"""<div style="font-family: sans-serif; font-size:12px; color:#333; min-width:210px;"><b style="color:#e11d48; font-size:14px;">🔥 {inc.title}</b><br><p style="margin:4px 0;">{inc.description or ''}</p><div style="background:#f1f5f9; padding:5px; border-radius:4px; font-weight:bold;">{services_html}</div>{photo_html}</div>"""
+        popup_html = f"""<div style="font-family: sans-serif; font-size:12px; color:#333; min-width:210px;"><b style="color:#e11d48; font-size:14px;">🔥 {inc.title}</b><br><p style="margin:4px 0;">{inc.description or ''}</p>{photo_html}</div>"""
         folium.Marker([inc.lat, inc.lon], popup=folium.Popup(popup_html, max_width=280),
-                      icon=folium.Icon(color=color, icon=icon_type, prefix='fa')).add_to(m)
+                      icon=folium.Icon(color=color, icon='fire', prefix='fa')).add_to(m)
+
+    for tm in tactical_markers:
+        icon_color = 'orange' if tm.marker_type == 'Фронт на огъня' else 'info'
+        icon_shape = 'exclamation-triangle' if tm.marker_type == 'Фронт на огъня' else 'wind'
+        folium.Marker([tm.lat, tm.lon], popup=f"<b>{tm.marker_type}</b>: {tm.details}",
+                      icon=folium.Icon(color=icon_color, icon=icon_shape, prefix='fa')).add_to(m)
 
     m.get_root().html.add_child(folium.Element("""
         <script>
@@ -100,19 +97,55 @@ def index():
                         activeMap.on('click', function(e) {
                             let lat = e.latlng.lat.toFixed(6);
                             let lon = e.latlng.lng.toFixed(6);
-                            if(document.getElementById('form-lat')) document.getElementById('form-lat').value = lat;
-                            if(document.getElementById('form-lon')) document.getElementById('form-lon').value = lon;
-                            if(document.getElementById('user-lat')) document.getElementById('user-lat').value = lat;
-                            if(document.getElementById('user-lon')) document.getElementById('user-lon').value = lon;
+                            ['form-lat', 'user-lat', 'tac-lat'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = lat; });
+                            ['form-lon', 'user-lon', 'tac-lon'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = lon; });
                         });
                     }
                 }, 1000);
             });
         </script>
     """))
-    return render_template('index.html', incidents=incidents, users=users, members=members, vehicles=vehicles,
-                           map_html=m._repr_html_(), user=session['username'], role=session.get('role'),
-                           chat=GLOBAL_CHAT_ROOM, addresses=BULGARIA_ADDRESS_BOOK)
+    return render_template('index.html', incidents=incidents, users=users, members=members, map_html=m._repr_html_(),
+                           user=session['username'], role=session.get('role'), chat=GLOBAL_CHAT_ROOM,
+                           addresses=BULGARIA_ADDRESS_BOOK, tasks=tasks, tactical_markers=tactical_markers)
+
+
+@app.route('/add_task', methods=['POST'])
+def add_task():
+    if not role('admin'): abort(403)
+    db.session.add(Task(incident_id=request.form.get('incident_id'), task_type=request.form.get('task_type'),
+                        description=request.form.get('description')))
+    db.session.commit()
+    return redirect(url_for('index'))
+
+
+@app.route('/task/<int:tid>/complete', methods=['POST'])
+def complete_task(tid):
+    if not role('admin', 'firefighter'): abort(403)
+    task = Task.query.get_or_404(tid)
+    task.status = 'completed'
+    db.session.commit()
+    return redirect(url_for('index'))
+
+
+@app.route('/add_tactical', methods=['POST'])
+def add_tactical():
+    if not role('admin', 'firefighter'): abort(403)
+    db.session.add(
+        TacticalMarker(incident_id=request.form.get('incident_id'), marker_type=request.form.get('marker_type'),
+                       lat=float(request.form.get('lat')), lon=float(request.form.get('lon')),
+                       details=request.form.get('details')))
+    db.session.commit()
+    return redirect(url_for('index'))
+
+
+@app.route('/sos', methods=['POST'])
+def sos_signal():
+    if not role('firefighter', 'admin'): abort(403)
+    GLOBAL_CHAT_ROOM.append({"user": f"🚨 SOS - {session.get('username')}", "role": "firefighter",
+                             "text": "ПОСТРАДАЛ ПОЖАРНИКАР! Нужда от незабавна евакуация!",
+                             "ts": datetime.now().strftime("%H:%M")})
+    return redirect(url_for('index'))
 
 
 @app.route('/incidents/list')
@@ -138,9 +171,9 @@ def assign_member(inc_id):
 def add_incident():
     if not role('admin'): abort(403)
     try:
-        db.session.add(Incident(title=request.form.get('title'), description=request.form.get('description', ''),
-                                lat=float(request.form.get('lat')), lon=float(request.form.get('lon')),
-                                source='operator', status='active'))
+        desc = f"{request.form.get('description')} | Опасни Вещества: {request.form.get('hazmat', 'Няма')}"
+        db.session.add(Incident(title=request.form.get('title'), description=desc, lat=float(request.form.get('lat')),
+                                lon=float(request.form.get('lon')), source='operator', status='active'))
         db.session.commit()
     except:
         db.session.rollback()
@@ -151,13 +184,9 @@ def add_incident():
 def report_incident_user():
     if not role('user', 'admin', 'firefighter'): abort(403)
     try:
-        desc_parts = [request.form.get('description', '')]
-        if request.form.get('need_ambulance'): desc_parts.append("[ИЗИСКВА ЛИНЕЙКА]")
-        if request.form.get('need_police'): desc_parts.append("[ИЗИСКВА ПОЛИЦИЯ]")
-        inc = Incident(title=request.form.get('title', 'Граждански сигнал'), description=" | ".join(desc_parts),
-                       lat=float(request.form.get('lat')), lon=float(request.form.get('lon')), source='citizen',
-                       status='active', injured=(request.form.get('injured') == 'yes'),
-                       injured_count=int(request.form.get('injured_count', 0) or 0))
+        inc = Incident(title=request.form.get('title', 'Граждански сигнал'),
+                       description=request.form.get('description', ''), lat=float(request.form.get('lat')),
+                       lon=float(request.form.get('lon')), source='citizen', status='active')
         db.session.add(inc)
         db.session.commit()
         file = request.files.get('photo')
@@ -192,7 +221,6 @@ def change_role(uid):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # Поддържаме два режима: стандартен FORM submit и AJAX (за pop-up проверка)
         u = User.query.filter_by(username=request.form.get('username'), password=request.form.get('password')).first()
         if u:
             session['user_id'], session['username'], session['role'] = u.id, u.username, u.role

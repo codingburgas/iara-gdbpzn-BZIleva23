@@ -2,275 +2,179 @@
 <html lang="bg">
 <head>
     <meta charset="UTF-8">
-    <title>PHOENIX България - Национална Диспечерска Система</title>
+    <title>PHOENIX Нац. Диспечерска Система</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { background-color: #0f172a; color: #e2e8f0; }
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-    </style>
+    <style>body{background-color:#0f172a; color:#e2e8f0;} .custom-scroll::-webkit-scrollbar{width:6px;} .custom-scroll::-webkit-scrollbar-thumb{background:#475569; border-radius:3px;}</style>
 </head>
-<body class="h-screen flex flex-col font-sans relative">
+<body class="h-screen flex flex-col font-sans overflow-hidden">
 
-    <!-- МОДАЛЕН ПРОЗОРЕЦ ЗА ПРЕГЛЕД НА СНИМКИ С ОПТИМАЛЕН РЕЗОЛЮШЪН -->
+    <!-- МОДАЛ ЗА СНИМКИ -->
     <div id="imageModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 max-w-2xl w-full rounded-xl p-4 relative">
-            <button onclick="closeImageModal()" class="absolute top-3 right-3 text-slate-400 hover:text-white text-xl cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
-            <h3 class="text-sm font-bold text-emerald-400 mb-3 uppercase"><i class="fa-solid fa-image mr-2"></i>Доказателствен материал от терен</h3>
-            <img id="modalImg" src="" alt="Инцидент Снимка" class="w-full h-auto max-h-[70vh] object-contain rounded-lg border border-slate-800">
+            <button onclick="document.getElementById('imageModal').classList.add('hidden')" class="absolute top-3 right-3 text-slate-400 hover:text-white text-xl cursor-pointer">✕</button>
+            <h3 class="text-sm font-bold text-emerald-400 mb-3 uppercase">👁️ Доказателствен материал от терен</h3>
+            <img id="modalImg" src="" class="w-full h-auto max-h-[70vh] object-contain rounded-lg">
         </div>
     </div>
 
     <!-- НАВИГАЦИЯ -->
-    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center shrink-0">
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex justify-between items-center shrink-0">
         <div class="flex items-center gap-3">
-            <i class="fa-solid fa-fire-glow text-red-500 text-2xl animate-pulse"></i>
-            <h1 class="text-xl font-black tracking-wider text-white">PHOENIX БЪЛГАРИЯ</h1>
+            <i class="fa-solid fa-shield-halved text-red-500 text-2xl animate-pulse"></i>
+            <h1 class="text-lg font-black tracking-wider text-white">PHOENIX - ГДПБЗН</h1>
         </div>
+
+        <!-- ЕКСТРА: ПАНИК БУТОН ЗА ПОЖАРНИКАРИ (От image.png) -->
+        {% if role == 'firefighter' %}
+        <form action="{{ url_for('sos_signal') }}" method="POST" onsubmit="return confirm('Сигурен ли сте, че искате да изпратите SOS сигнал за пострадал пожарникар?')">
+            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-black text-xs px-4 py-2 rounded-md animate-bounce shadow-lg flex items-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-triangle-exclamation"></i> 🚨 ИЗПРАТИ SOS (ПОСТРАДАЛ ПОЖАРНИКАР)
+            </button>
+        </form>
+        {% endif %}
+
         <div class="flex items-center gap-4">
-            <span class="text-sm bg-slate-800 px-3 py-1.5 rounded-md text-slate-300">
-                Роля: <strong class="text-white uppercase font-mono">[{{ role }}]</strong> | Оператор: <strong class="text-white">{{ user }}</strong>
-            </span>
-            <a href="{{ url_for('logout') }}" class="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-md transition">Изход</a>
+            <span class="text-xs bg-slate-800 px-3 py-1.5 rounded text-slate-300">Роля: <strong class="text-white uppercase">[{{ role }}]</strong> | Оператор: {{ user }}</span>
+            <a href="{{ url_for('logout') }}" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1.5 rounded">Изход</a>
         </div>
     </header>
 
-    <!-- ТАБЛО -->
     <main class="flex-1 flex overflow-hidden p-4 gap-4">
-
-        <!-- ЛЯВА ЧАСТ: КАРТА И ДОБАВЯНЕ НА СИГНАЛИ -->
+        <!-- ЛЯВО: КАРТА И ТАКТИЧЕСКИ КОНТРОЛ -->
         <div class="flex-1 flex flex-col gap-4 overflow-hidden">
-            <div class="text-xs bg-slate-800 text-slate-300 px-4 py-2 rounded-lg border border-slate-700 flex justify-between items-center">
-                <span>📍 Кликнете върху произволна точка от България на картата или изберете точен адрес от менюто долу.</span>
-                <span class="text-[10px] bg-red-950 text-red-400 font-bold px-2 py-0.5 rounded animate-pulse"><i class="fa-solid fa-tower-cell mr-1"></i>Мониторинг Национален</span>
-            </div>
-
             <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden relative shadow-lg">
                 {{ map_html | safe }}
             </div>
 
-            <!-- ФОРМА ЗА ОПЕРАТОР - САМО ЗА ADMIN -->
+            <!-- АДМИН ПАНЕЛ: СЪЗДАВАНЕ НА СИГНАЛ С ОПАСНИ ВЕЩЕСТВА -->
             {% if role == 'admin' %}
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shrink-0">
-                <h3 class="text-sm font-bold text-red-400 mb-2 uppercase flex items-center gap-2"><i class="fa-solid fa-map-location-dot"></i>Диспечерски Сигнал (Национална База Адреси)</h3>
-
-                <div class="mb-3">
-                    <select onchange="fillAdminAddress(this)" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-amber-400 font-medium">
-                        <option value="">-- Избери готов адрес / Критична инфраструктура от България --</option>
-                        {% for addr in addresses %}
-                        <option value="{{ addr.lat }},{{ addr.lon }}">{{ addr.name }}</option>
-                        {% endfor %}
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shrink-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="text-xs font-bold text-red-400 mb-2 uppercase"><i class="fa-solid fa-circle-plus"></i> Нов сигнал</h3>
+                    <select onchange="const c=this.value.split(','); document.getElementById('form-lat').value=c[0]; document.getElementById('form-lon').value=c[1];" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-amber-400 mb-2">
+                        <option value="">-- Избери град/адрес от България --</option>
+                        {% for addr in addresses %} <option value="{{ addr.lat }},{{ addr.lon }}">{{ addr.name }}</option> {% endfor %}
                     </select>
+                    <form action="{{ url_for('add_incident') }}" method="POST" class="space-y-2">
+                        <input type="text" name="title" required placeholder="Заглавие на произшествието..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                        <input type="text" name="description" placeholder="Описание на инцидента..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                        <input type="text" name="hazmat" placeholder="⚠️ Опасни вещества (напр. Хлор, Пропан-бутан)..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-red-400 font-bold bg-red-950/20">
+                        <div class="flex gap-2">
+                            <input type="number" step="any" id="form-lat" name="lat" required placeholder="Ширина" class="w-1/2 bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                            <input type="number" step="any" id="form-lon" name="lon" required placeholder="Дължина" class="w-1/2 bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                        </div>
+                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white text-xs py-2 rounded font-bold cursor-pointer">ОБЯВИ ПРОИЗШЕСТВИЕ</button>
+                    </form>
                 </div>
 
-                <form action="{{ url_for('add_incident') }}" method="POST" class="flex flex-wrap gap-3 items-end">
-                    <div class="flex-1 min-w-[200px]">
-                        <input type="text" name="title" required placeholder="Какво се случи (Произшествие)..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500">
-                    </div>
-                    <div class="w-32">
-                        <input type="number" step="any" id="form-lat" name="lat" required placeholder="Ширина" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none">
-                    </div>
-                    <div class="w-32">
-                        <input type="number" step="any" id="form-lon" name="lon" required placeholder="Дължина" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none">
-                    </div>
-                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-xs px-5 py-2.5 rounded font-bold cursor-pointer">ОБЯВИ</button>
-                </form>
+                <!-- УПРАВЛЕНИЕ НА ТАКТИЧЕСКИ ЗАДАЧИ -->
+                <div>
+                    <h3 class="text-xs font-bold text-emerald-400 mb-2 uppercase"><i class="fa-solid fa-list-check"></i> Назначи Тактическа Задача (Доставка/Оперативна)</h3>
+                    <form action="{{ url_for('add_task') }}" method="POST" class="space-y-2">
+                        <select name="incident_id" required class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                            <option value="">-- Избери Активно Произшествие --</option>
+                            {% for inc in incidents if inc.status == 'active' %} <option value="{{ inc.id }}">{{ inc.title }}</option> {% endfor %}
+                        </select>
+                        <select name="task_type" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                            <option value="Оперативна (Гасене/Евакуация)">Оперативна (Гасене/Евакуация)</option>
+                            <option value="Логистична (Цистерна с вода)">Логистична (Цистерна с вода)</option>
+                            <option value="Логистична (Доставка на гориво)">Логистична (Доставка на гориво)</option>
+                        </select>
+                        <textarea name="description" required placeholder="Специфични указания за екипа..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white h-12"></textarea>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 rounded font-bold cursor-pointer">ИЗПРАТИ ЗАДАЧА КЪМ ТЕРЕН</button>
+                    </form>
+                </div>
             </div>
             {% endif %}
 
-            <!-- ФОРМА ЗА ГРАЖДАНИ - ЗА USER -->
+            <!-- ФОРМА ЗА ГРАЖДАНИ (USER) -->
             {% if role == 'user' %}
-            <div class="bg-slate-900 border-2 border-blue-900 rounded-xl p-4 shrink-0">
-                <h3 class="text-sm font-black text-blue-400 mb-2 uppercase flex items-center gap-2"><i class="fa-solid fa-bullhorn animate-bounce"></i> Изпрати спешен граждански сигнал</h3>
-
-                <div class="mb-2">
-                    <select onchange="fillUserAddress(this)" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-blue-300">
-                        <option value="">-- Или избери локация от националния списък с градове тук --</option>
-                        {% for addr in addresses %}
-                        <option value="{{ addr.lat }},{{ addr.lon }}">{{ addr.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <form action="{{ url_for('report_incident_user') }}" method="POST" enctype="multipart/form-data" class="space-y-3">
-                    <div class="flex gap-3">
-                        <button type="button" onclick="getLocation()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded flex items-center gap-2 transition cursor-pointer">
-                            <i class="fa-solid fa-location-crosshairs"></i> Вземи текущото ми GPS местоположение
-                        </button>
-                        <input type="number" step="any" id="user-lat" name="lat" required placeholder="Ширина" class="w-36 bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-white">
-                        <input type="number" step="any" id="user-lon" name="lon" required placeholder="Дължина" class="w-36 bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-white">
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <input type="text" name="title" required placeholder="Кратко заглавие (напр. Пожар в склад)..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white">
-                        <input type="file" name="photo" accept="image/*" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1 text-xs text-slate-400 cursor-pointer">
-                    </div>
-                    <div class="flex flex-wrap items-center gap-6 bg-slate-950 p-2.5 rounded border border-slate-800 text-xs">
-                        <label class="flex items-center gap-2">
-                            <span class="text-slate-300">Има ли пострадали?</span>
-                            <select name="injured" class="bg-slate-900 border border-slate-700 rounded px-1" onchange="document.getElementById('inj_cnt').style.display = this.value=='yes'?'inline':'none'">
-                                <option value="no">Не</option>
-                                <option value="yes">Да</option>
-                            </select>
-                        </label>
-                        <input type="number" id="inj_cnt" name="injured_count" placeholder="Брой лица" style="display:none;" class="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-white">
-
-                        <label class="flex items-center gap-1.5 text-red-400 font-bold">
-                            <input type="checkbox" name="need_ambulance" value="yes" class="rounded"> 🚑 Спешна Помощ
-                        </label>
-                        <label class="flex items-center gap-1.5 text-blue-400 font-bold">
-                            <input type="checkbox" name="need_police" value="yes" class="rounded"> 🚓 МВР
-                        </label>
-                    </div>
-                    <div class="flex justify-end">
-                        <button type="submit" onclick="playSiren()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-6 py-2 rounded uppercase tracking-wider cursor-pointer">Подай сигнал</button>
-                    </div>
+            <div class="bg-slate-900 border border-blue-800 rounded-xl p-4 shrink-0">
+                <h3 class="text-xs font-bold text-blue-400 mb-2 uppercase">📢 Подай Граждански Сигнал</h3>
+                <form action="{{ url_for('report_incident_user') }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center">
+                    <input type="text" name="title" required placeholder="Какво виждате..." class="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white flex-1">
+                    <input type="text" name="description" placeholder="Детайли..." class="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white flex-1">
+                    <input type="file" name="photo" accept="image/*" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-slate-400 w-44">
+                    <input type="hidden" id="user-lat" name="lat" value="42.6965">
+                    <input type="hidden" id="user-lon" name="lon" value="23.3260">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded font-bold cursor-pointer">ИЗПРАТИ</button>
                 </form>
             </div>
             {% endif %}
         </div>
 
-        <!-- ДЯСНА ЧАСТ: ЕКИПИ, ЧАТ И АДМИН ПАНЕЛ -->
+        <!-- ДЯСНО: ТАКТИЧЕСКИ МАРКЕРИ, ЗАДАЧИ И ЧАТ С ШАБЛОНИ -->
         <div class="w-96 flex flex-col gap-4 overflow-hidden shrink-0">
 
-            {% if role == 'admin' or role == 'firefighter' %}
-            <div class="h-64 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden shadow-lg">
-                <h3 class="text-xs font-black text-emerald-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
-                    <i class="fa-solid fa-comments"></i> Критична Координация (Национален Чат)
-                </h3>
-                <div class="flex-1 overflow-y-auto custom-scroll space-y-2 p-2 bg-slate-950 rounded border border-slate-800 mb-2">
-                    {% for msg in chat %}
-                    <div class="text-xs">
-                        <span class="font-mono text-[10px] text-slate-500">[{{ msg.ts }}]</span>
-                        <strong class="{{ 'text-red-400' if msg.role=='admin' else 'text-blue-400' }}">{{ msg.user }}:</strong>
-                        <span class="text-slate-200">{{ msg.text }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-                <form action="{{ url_for('chat_send') }}" method="POST" class="flex gap-2">
-                    <input type="text" name="text" required placeholder="Напиши съобщение..." class="flex-1 bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none">
-                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 rounded font-bold"><i class="fa-solid fa-paper-plane"></i></button>
-                </form>
-            </div>
-            {% endif %}
-
-            {% if role == 'admin' %}
-            <div class="h-40 bg-slate-900 border border-red-900/40 rounded-xl p-4 flex flex-col overflow-hidden shadow-lg">
-                <h3 class="text-xs font-black text-red-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-user-gear"></i> Права на достъп</h3>
-                <div class="flex-1 overflow-y-auto custom-scroll space-y-1.5 pr-1">
-                    {% for u in users %}
-                    <div class="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 flex justify-between items-center">
-                        <span class="text-xs font-bold text-slate-200 truncate">{{ u.username }}</span>
-                        <select onchange="updateUserRole('{{ u.id }}', this.value)" class="bg-slate-900 border border-slate-700 text-[11px] rounded px-1 py-0.5 text-slate-300">
-                            <option value="user" {% if u.role == 'user' %}selected{% endif %}>User</option>
-                            <option value="firefighter" {% if u.role == 'firefighter' %}selected{% endif %}>Firefighter</option>
-                            <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
-                        </select>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden">
-                <h3 class="text-sm font-bold text-blue-400 mb-3 uppercase">🚒 Дежурен състав (Национален)</h3>
-                <div class="flex-1 overflow-y-auto custom-scroll space-y-2">
-                    {% for member in members %}
-                    <div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h4 class="text-sm font-bold text-white">{{ member.name }}</h4>
-                                <p class="text-xs text-slate-400">Кола: {{ member.vehicle.call_sign if member.vehicle else 'Няма зачислена' }}</p>
-                            </div>
-                            <span class="text-[10px] px-2 py-0.5 rounded font-bold uppercase {{ 'bg-green-950 text-green-400' if member.status == 'available' else 'bg-red-950 text-red-400' }}">{{ member.status }}</span>
+            <!-- СПИСЪК С ТАКТИЧЕСКИ ЗАДАЧИ ЗА ТЕРЕН -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col h-48 overflow-hidden">
+                <h3 class="text-xs font-black text-amber-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-list-check mr-1"></i> Текущи задачи към екипите</h3>
+                <div class="flex-1 overflow-y-auto custom-scroll space-y-1.5 bg-slate-950 p-2 rounded border border-slate-800">
+                    {% for t in tasks %}
+                    <div class="text-[11px] bg-slate-900 p-2 rounded border border-slate-800 flex justify-between items-center">
+                        <div>
+                            <span class="block font-bold text-slate-300">[{{ t.task_type }}]</span>
+                            <p class="text-slate-400">{{ t.description }}</p>
                         </div>
-                        {% if role == 'admin' or role == 'firefighter' %}
-                        <div class="flex gap-1.5 mt-2">
-                            <button onclick="openAssignModal('{{ member.id }}', '{{ member.name }}')" class="flex-1 bg-blue-600 text-white text-xs py-1 px-2 rounded cursor-pointer">Разпореди Екип</button>
-                        </div>
+                        {% if t.status == 'pending' %}
+                            <form action="{{ url_for('complete_task', tid=t.id) }}" method="POST">
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded font-bold cursor-pointer">Приключи</button>
+                            </form>
+                        {% else %}
+                            <span class="text-green-400 font-bold">✓ Готова</span>
                         {% endif %}
                     </div>
                     {% endfor %}
                 </div>
             </div>
 
+            <!-- ДОБАВЯНЕ НА ТАКТИЧЕСКИ МАРКЕРИ НА КАРТАТА -->
+            {% if role == 'admin' or role == 'firefighter' %}
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <h3 class="text-xs font-black text-orange-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-map-pin"></i> Маркирай Обстановка (Фронт / Вятър)</h3>
+                <form action="{{ url_for('add_tactical') }}" method="POST" class="grid grid-cols-2 gap-2">
+                    <select name="incident_id" required class="col-span-2 bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                        {% for inc in incidents if inc.status == 'active' %} <option value="{{ inc.id }}">{{ inc.title }}</option> {% endfor %}
+                    </select>
+                    <select name="marker_type" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                        <option value="Фронт на огъня">🔥 Фронт на огъня</option>
+                        <option value="Посока на вятъра">💨 Посока на вятъра</option>
+                    </select>
+                    <input type="text" name="details" required placeholder="Детайли (напр. Изток)" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                    <input type="number" step="any" id="tac-lat" name="lat" required placeholder="Lat" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                    <input type="number" step="any" id="tac-lon" name="lon" required placeholder="Lon" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                    <button type="submit" class="col-span-2 bg-orange-600 hover:bg-orange-700 text-white text-xs py-1 rounded font-bold cursor-pointer">Постави маркер на картата</button>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- ЧАТ С ПРЕДВАРИТЕЛНО ИЗГОТВЕНИ ШАБЛОНИ (Изискване от image.png) -->
+            <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden">
+                <h3 class="text-xs font-black text-emerald-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-comments"></i> Оперативен Радиочат</h3>
+                <div class="flex-1 overflow-y-auto custom-scroll space-y-2 p-2 bg-slate-950 rounded border border-slate-800 mb-2">
+                    {% for msg in chat %}
+                    <div class="text-xs">
+                        <strong class="{{ 'text-red-400' if msg.role=='admin' else 'text-blue-400' }}">{{ msg.user }}:</strong>
+                        <span class="text-slate-200">{{ msg.text }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- БЪРЗИ ШАБЛОНИ -->
+                <div class="flex gap-1 mb-2 overflow-x-auto pb-1">
+                    <button onclick="document.getElementById('chat-input').value='🔥 Пожарът е локализиран.';" class="bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 px-2 py-1 rounded shrink-0 cursor-pointer">🔒 Локализиран</button>
+                    <button onclick="document.getElementById('chat-input').value='🚒 Нуждаем се от допълнителни водоноски/цистерни!';" class="bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 px-2 py-1 rounded shrink-0 cursor-pointer">💧 Вода</button>
+                    <button onclick="document.getElementById('chat-input').value='🚑 Налично е пострадало лице, изпратете линейка!';" class="bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 px-2 py-1 rounded shrink-0 cursor-pointer">🚑 Пострадал</button>
+                </div>
+
+                <form action="{{ url_for('chat_send') }}" method="POST" class="flex gap-2">
+                    <input type="text" name="text" id="chat-input" required placeholder="Напиши или избери шаблон..." class="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs text-white">
+                    <button type="submit" class="bg-emerald-600 text-white px-3 rounded"><i class="fa-solid fa-paper-plane"></i></button>
+                </form>
+            </div>
+
         </div>
     </main>
-
-    <script>
-        function fillAdminAddress(selectElement) {
-            if(!selectElement.value) return;
-            const coords = selectElement.value.split(',');
-            document.getElementById('form-lat').value = coords[0];
-            document.getElementById('form-lon').value = coords[1];
-        }
-
-        function fillUserAddress(selectElement) {
-            if(!selectElement.value) return;
-            const coords = selectElement.value.split(',');
-            document.getElementById('user-lat').value = coords[0];
-            document.getElementById('user-lon').value = coords[1];
-        }
-
-        function showImageModal(src) {
-            document.getElementById('modalImg').src = src;
-            document.getElementById('imageModal').classList.remove('hidden');
-        }
-
-        function closeImageModal() {
-            document.getElementById('imageModal').classList.add('hidden');
-        }
-
-        function playSiren() {
-            try {
-                let context = new (window.AudioContext || window.webkitAudioContext)();
-                let osc = context.createOscillator();
-                osc.type = "sawtooth";
-                osc.frequency.setValueAtTime(440, context.currentTime);
-                osc.frequency.linearRampToValueAtTime(880, context.currentTime + 0.5);
-                osc.frequency.linearRampToValueAtTime(440, context.currentTime + 1.0);
-                osc.connect(context.destination);
-                osc.start();
-                osc.stop(context.currentTime + 1.2);
-            } catch(e) { console.log("Audio API blocked"); }
-        }
-
-        function getLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    document.getElementById('user-lat').value = position.coords.latitude.toFixed(6);
-                    document.getElementById('user-lon').value = position.coords.longitude.toFixed(6);
-                });
-            }
-        }
-
-        function updateUserRole(userId, newRole) {
-            fetch(`/user/${userId}/role`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role: newRole })
-            }).then(res => { if (res.ok) location.reload(); });
-        }
-
-        function openAssignModal(memberId, memberName) {
-            fetch('/incidents/list')
-                .then(res => res.json())
-                .then(incidents => {
-                    if (incidents.length === 0) return alert('Няма активни сигнали.');
-                    let text = `Изберете сигнал за ${memberName}:\n\n`;
-                    incidents.forEach((inc, i) => { text += `${i + 1}. ${inc.title}\n`; });
-                    let choice = prompt(text + `\nНомер на сигнал:`);
-                    if (!choice) return;
-                    let idx = parseInt(choice) - 1;
-                    if (idx >= 0 && idx < incidents.length) {
-                        fetch(`/incident/${incidents[idx].id}/assign`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ member_id: memberId })
-                        }).then(res => { if (res.ok) location.reload(); });
-                    }
-                });
-        }
-    </script>
 </body>
 </html>

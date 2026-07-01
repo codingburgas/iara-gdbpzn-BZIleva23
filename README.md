@@ -42,7 +42,6 @@ PHOENIX is a real-time tactical dispatch and emergency coordination platform des
    python app.py
 
 2. Access the portal
-   ```bash
 Open ⁠http://127.0.0.1:5000⁠ in your web browser.
 
 

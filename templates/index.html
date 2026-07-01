@@ -5,11 +5,15 @@
     <title>PHOENIX Нац. Диспечерска Система</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>body{background-color:#0f172a; color:#e2e8f0;} .custom-scroll::-webkit-scrollbar{width:6px;} .custom-scroll::-webkit-scrollbar-thumb{background:#475569; border-radius:3px;}</style>
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
+    </style>
 </head>
 <body class="h-screen flex flex-col font-sans overflow-hidden">
 
-    <!-- МОДАЛ ЗА СНИМКИ -->
     <div id="imageModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 max-w-2xl w-full rounded-xl p-4 relative">
             <button onclick="document.getElementById('imageModal').classList.add('hidden')" class="absolute top-3 right-3 text-slate-400 hover:text-white text-xl cursor-pointer">✕</button>
@@ -18,14 +22,28 @@
         </div>
     </div>
 
-    <!-- НАВИГАЦИЯ -->
-    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex justify-between items-center shrink-0">
+    <div id="survivalModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-amber-500 max-w-lg w-full rounded-xl p-5 relative shadow-2xl">
+            <button onclick="document.getElementById('survivalModal').classList.add('hidden')" class="absolute top-3 right-3 text-slate-400 hover:text-white text-xl cursor-pointer">✕</button>
+            <h3 class="text-md font-black text-amber-500 mb-3 uppercase flex items-center gap-2">
+                <i class="fa-solid fa-kit-medical text-xl animate-pulse"></i> Наръчник за оцеляване при пожар
+            </h3>
+            <div class="space-y-3 text-xs text-slate-300 overflow-y-auto max-h-96 pr-2 custom-scroll">
+                <div class="bg-slate-950 p-3 rounded border-l-4 border-red-500">
+                    <strong class="text-white block mb-1">🏠 При пожар in сграда:</strong>
+                    Не използвайте асансьори! Слезте бързо по стълбите. Ако има дим, се движете ниско до пода.
+                </div>
+            </div>
+            <button onclick="document.getElementById('survivalModal').classList.add('hidden')" class="w-full bg-slate-800 text-white text-xs py-2 rounded mt-4 font-bold">Разбрах</button>
+        </div>
+    </div>
+
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex justify-between items-center shrink-0 shadow-md">
         <div class="flex items-center gap-3">
             <i class="fa-solid fa-shield-halved text-red-500 text-2xl animate-pulse"></i>
             <h1 class="text-lg font-black tracking-wider text-white">PHOENIX - ГДПБЗН</h1>
         </div>
 
-        <!-- ЕКСТРА: ПАНИК БУТОН ЗА ПОЖАРНИКАРИ (От image.png) -->
         {% if role == 'firefighter' %}
         <form action="{{ url_for('sos_signal') }}" method="POST" onsubmit="return confirm('Сигурен ли сте, че искате да изпратите SOS сигнал за пострадал пожарникар?')">
             <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-black text-xs px-4 py-2 rounded-md animate-bounce shadow-lg flex items-center gap-2 cursor-pointer">
@@ -36,41 +54,45 @@
 
         <div class="flex items-center gap-4">
             <span class="text-xs bg-slate-800 px-3 py-1.5 rounded text-slate-300">Роля: <strong class="text-white uppercase">[{{ role }}]</strong> | Оператор: {{ user }}</span>
-            <a href="{{ url_for('logout') }}" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1.5 rounded">Изход</a>
+            <a href="{{ url_for('logout') }}" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1.5 rounded transition-colors">Изход</a>
         </div>
     </header>
 
+    <section class="bg-slate-950 border-b border-slate-900 px-6 py-2 flex gap-6 text-xs shrink-0 text-slate-400">
+        <div><i class="fa-solid fa-fire text-red-500 mr-1"></i> Активни инциденти: <strong class="text-white">{{ incidents|selectattr('status', 'equalto', 'active')|list|length }}</strong></div>
+        <div><i class="fa-solid fa-truck-fire text-emerald-500 mr-1"></i> Налична техника: <strong class="text-white">{{ members|length }} екипа</strong></div>
+        <div><i class="fa-solid fa-list-check text-amber-500 mr-1"></i> Чакащи задачи: <strong class="text-white">{{ tasks|selectattr('status', 'equalto', 'pending')|list|length }}</strong></div>
+    </section>
+
     <main class="flex-1 flex overflow-hidden p-4 gap-4">
-        <!-- ЛЯВО: КАРТА И ТАКТИЧЕСКИ КОНТРОЛ -->
-        <div class="flex-1 flex flex-col gap-4 overflow-hidden">
+
+        <div class="flex-1 flex flex-col gap-4 overflow-hidden h-full">
             <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden relative shadow-lg">
                 {{ map_html | safe }}
             </div>
 
-            <!-- АДМИН ПАНЕЛ: СЪЗДАВАНЕ НА СИГНАЛ С ОПАСНИ ВЕЩЕСТВА -->
             {% if role == 'admin' %}
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shrink-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shrink-0 max-h-60 overflow-y-auto custom-scroll grid grid-cols-1 md:grid-cols-2 gap-4 shadow-inner">
                 <div>
-                    <h3 class="text-xs font-bold text-red-400 mb-2 uppercase"><i class="fa-solid fa-circle-plus"></i> Нов сигнал</h3>
-                    <select onchange="const c=this.value.split(','); document.getElementById('form-lat').value=c[0]; document.getElementById('form-lon').value=c[1];" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-amber-400 mb-2">
+                    <h3 class="text-xs font-bold text-red-400 mb-2 uppercase tracking-wide"><i class="fa-solid fa-circle-plus"></i> Нов сигнал</h3>
+                    <select onchange="const c=this.value.split(','); document.getElementById('form-lat').value=c[0]; document.getElementById('form-lon').value=c[1];" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-amber-400 mb-2 focus:outline-none">
                         <option value="">-- Избери град/адрес от България --</option>
                         {% for addr in addresses %} <option value="{{ addr.lat }},{{ addr.lon }}">{{ addr.name }}</option> {% endfor %}
                     </select>
                     <form action="{{ url_for('add_incident') }}" method="POST" class="space-y-2">
                         <input type="text" name="title" required placeholder="Заглавие на произшествието..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
                         <input type="text" name="description" placeholder="Описание на инцидента..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
-                        <input type="text" name="hazmat" placeholder="⚠️ Опасни вещества (напр. Хлор, Пропан-бутан)..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-red-400 font-bold bg-red-950/20">
+                        <input type="text" name="hazmat" placeholder="⚠️ Опасни вещества (напр. Хлор, Пропан)..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-red-400 font-bold bg-red-950/20">
                         <div class="flex gap-2">
                             <input type="number" step="any" id="form-lat" name="lat" required placeholder="Ширина" class="w-1/2 bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
                             <input type="number" step="any" id="form-lon" name="lon" required placeholder="Дължина" class="w-1/2 bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
                         </div>
-                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white text-xs py-2 rounded font-bold cursor-pointer">ОБЯВИ ПРОИЗШЕСТВИЕ</button>
+                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white text-xs py-2 rounded font-bold cursor-pointer transition-colors">ОБЯВИ ПРОИЗШЕСТВИЕ</button>
                     </form>
                 </div>
 
-                <!-- УПРАВЛЕНИЕ НА ТАКТИЧЕСКИ ЗАДАЧИ -->
                 <div>
-                    <h3 class="text-xs font-bold text-emerald-400 mb-2 uppercase"><i class="fa-solid fa-list-check"></i> Назначи Тактическа Задача (Доставка/Оперативна)</h3>
+                    <h3 class="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-wide"><i class="fa-solid fa-list-check"></i> Назначи Тактическа Задача</h3>
                     <form action="{{ url_for('add_task') }}" method="POST" class="space-y-2">
                         <select name="incident_id" required class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
                             <option value="">-- Избери Активно Произшествие --</option>
@@ -81,78 +103,143 @@
                             <option value="Логистична (Цистерна с вода)">Логистична (Цистерна с вода)</option>
                             <option value="Логистична (Доставка на гориво)">Логистична (Доставка на гориво)</option>
                         </select>
-                        <textarea name="description" required placeholder="Специфични указания за екипа..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white h-12"></textarea>
-                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 rounded font-bold cursor-pointer">ИЗПРАТИ ЗАДАЧА КЪМ ТЕРЕН</button>
+                        <textarea name="description" required placeholder="Специфични указания за екипа..." class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white h-12 custom-scroll"></textarea>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 rounded font-bold cursor-pointer transition-colors">ИЗПРАТИ ЗАДАЧА КЪМ ТЕРЕН</button>
                     </form>
                 </div>
             </div>
             {% endif %}
 
-            <!-- ФОРМА ЗА ГРАЖДАНИ (USER) -->
             {% if role == 'user' %}
-            <div class="bg-slate-900 border border-blue-800 rounded-xl p-4 shrink-0">
-                <h3 class="text-xs font-bold text-blue-400 mb-2 uppercase">📢 Подай Граждански Сигнал</h3>
+            <div class="bg-slate-900 border border-blue-800 rounded-xl p-4 shrink-0 shadow-lg flex flex-col gap-3">
+                <div class="flex flex-wrap justify-between items-center gap-2 bg-slate-950 p-2 rounded border border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="getUserLiveLocation()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] px-3 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-colors">
+                            <i class="fa-solid fa-location-crosshairs"></i> 🎯 Вземи моя GPS
+                        </button>
+                        <button type="button" onclick="document.getElementById('survivalModal').classList.remove('hidden')" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] px-3 py-1.5 rounded flex items-center gap-1 cursor-pointer transition-colors">
+                            <i class="fa-solid fa-life-ring"></i> 🦺 Наръчник Оцеляване
+                        </button>
+                    </div>
+                    <a href="tel:112" onclick="alert('Системата симулира спешно гласово повикване към телефон 112!'); return false;" class="bg-red-600 hover:bg-red-700 text-white font-black text-[11px] px-3 py-1.5 rounded flex items-center gap-1 transition-colors shadow-md">
+                        <i class="fa-solid fa-phone-flip animate-bounce"></i> СПЕШНО ПОВИКВАНЕ (112)
+                    </a>
+                </div>
+
                 <form action="{{ url_for('report_incident_user') }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center">
                     <input type="text" name="title" required placeholder="Какво виждате..." class="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white flex-1">
-                    <input type="text" name="description" placeholder="Детайли..." class="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white flex-1">
+                    <input type="text" name="description" placeholder="Описание/Ориентири..." class="bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white flex-1">
                     <input type="file" name="photo" accept="image/*" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-slate-400 w-44">
                     <input type="hidden" id="user-lat" name="lat" value="42.6965">
                     <input type="hidden" id="user-lon" name="lon" value="23.3260">
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded font-bold cursor-pointer">ИЗПРАТИ</button>
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-5 py-2 rounded font-bold cursor-pointer transition-colors">ИЗПРАТИ СИГНАЛ СЪС СНИМКА</button>
                 </form>
             </div>
             {% endif %}
         </div>
 
-        <!-- ДЯСНО: ТАКТИЧЕСКИ МАРКЕРИ, ЗАДАЧИ И ЧАТ С ШАБЛОНИ -->
-        <div class="w-96 flex flex-col gap-4 overflow-hidden shrink-0">
+        <div class="w-96 flex flex-col gap-4 overflow-y-auto custom-scroll h-full pr-1 shrink-0">
 
-            <!-- СПИСЪК С ТАКТИЧЕСКИ ЗАДАЧИ ЗА ТЕРЕН -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col h-48 overflow-hidden">
-                <h3 class="text-xs font-black text-amber-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-list-check mr-1"></i> Текущи задачи към екипите</h3>
-                <div class="flex-1 overflow-y-auto custom-scroll space-y-1.5 bg-slate-950 p-2 rounded border border-slate-800">
+            {% if role == 'firefighter' %}
+            <div class="bg-slate-900 border-2 border-red-500/50 rounded-xl p-4 flex flex-col shrink-0 shadow-lg gap-3">
+                <h3 class="text-xs font-black text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-truck-fire"></i> Мониторинг на АП Пожарна Техника
+                </h3>
+
+                <div class="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-2">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span>💧 Резервоар Вода:</span>
+                        <select onchange="alert('Статусът на водата е изпратен към диспечер: ' + this.value)" class="bg-slate-900 border border-slate-700 text-[10px] rounded px-1.5 py-0.5 text-emerald-400 font-bold focus:outline-none">
+                            <option value="100%">100% Пълен</option>
+                            <option value="75%">75% Обем</option>
+                            <option value="50%">50% Полупразен</option>
+                            <option value="25%">⚠️ 25% Критично ниво</option>
+                        </select>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span>🧪 Резервоар Пяна:</span>
+                        <select onchange="alert('Статусът на пяната е изпратен към диспечер: ' + this.value)" class="bg-slate-900 border border-slate-700 text-[10px] rounded px-1.5 py-0.5 text-blue-400 font-bold focus:outline-none">
+                            <option value="100%">100% Наличен</option>
+                            <option value="50%">50% Наличен</option>
+                            <option value="0%">❌ Изчерпан</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-slate-950 p-2 rounded border border-slate-800 text-[11px] grid grid-cols-2 gap-2 text-slate-400">
+                    <div><i class="fa-solid fa-wind text-sky-400 mr-1"></i> Вятър: <strong>14 m/s (ЮИ)</strong></div>
+                    <div><i class="fa-solid fa-temperature-high text-orange-400 mr-1"></i> Риск: <strong class="text-red-400">ВИСОК</strong></div>
+                </div>
+
+                <div class="text-[10px] bg-slate-950 p-2 rounded border border-slate-800 text-slate-400">
+                    <span class="text-slate-200 font-bold block mb-1">🗺️ Най-близки хидранти в района:</span>
+                    • Пожарен Хидрант #04 (На 120м от инцидента)<br>
+                    • Водоем за тежка техника (На 1.5км по път Е79)
+                </div>
+            </div>
+            {% endif %}
+
+            {% if role == 'admin' %}
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col shrink-0 shadow-lg">
+                <h3 class="text-xs font-black text-red-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-user-gear mr-1"></i> Роли</h3>
+                <div class="max-h-40 overflow-y-auto custom-scroll space-y-1.5 pr-1 bg-slate-950 p-2 rounded border border-slate-900">
+                    {% for u in users %}
+                    <div class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1 flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-200 truncate max-w-[140px]">{{ u.username }}</span>
+                        <select onchange="updateUserRole('{{ u.id }}', this.value)" class="bg-slate-950 border border-slate-700 text-[11px] rounded px-1 py-0.5 text-slate-300 focus:outline-none focus:border-red-500 cursor-pointer">
+                            <option value="user" {% if u.role == 'user' %}selected{% endif %}>User (Гражданин)</option>
+                            <option value="firefighter" {% if u.role == 'firefighter' %}selected{% endif %}>Firefighter (Пожарникар)</option>
+                            <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin (Диспечер)</option>
+                        </select>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col shrink-0 shadow-lg">
+                <h3 class="text-xs font-black text-amber-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-list-check mr-1"></i> Текущи оперативни задачи</h3>
+                <div class="max-h-40 overflow-y-auto custom-scroll space-y-1.5 bg-slate-950 p-2 rounded border border-slate-900">
                     {% for t in tasks %}
                     <div class="text-[11px] bg-slate-900 p-2 rounded border border-slate-800 flex justify-between items-center">
-                        <div>
+                        <div class="max-w-[200px]">
                             <span class="block font-bold text-slate-300">[{{ t.task_type }}]</span>
-                            <p class="text-slate-400">{{ t.description }}</p>
+                            <p class="text-slate-400 break-words">{{ t.description }}</p>
                         </div>
                         {% if t.status == 'pending' %}
-                            <form action="{{ url_for('complete_task', tid=t.id) }}" method="POST">
-                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded font-bold cursor-pointer">Приключи</button>
+                            <form action="{{ url_for('complete_task', tid=t.id) }}" method="POST" class="shrink-0">
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2 py-1 rounded font-bold cursor-pointer transition-colors">Приключи</button>
                             </form>
                         {% else %}
-                            <span class="text-green-400 font-bold">✓ Готова</span>
+                            <span class="text-green-400 font-bold shrink-0">✓ Готова</span>
                         {% endif %}
                     </div>
                     {% endfor %}
                 </div>
             </div>
 
-            <!-- ДОБАВЯНЕ НА ТАКТИЧЕСКИ МАРКЕРИ НА КАРТАТА -->
             {% if role == 'admin' or role == 'firefighter' %}
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                <h3 class="text-xs font-black text-orange-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-map-pin"></i> Маркирай Обстановка (Фронт / Вятър)</h3>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shrink-0 shadow-lg">
+                <h3 class="text-xs font-black text-orange-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-map-pin"></i> Маркирай Обстановка на Терен</h3>
                 <form action="{{ url_for('add_tactical') }}" method="POST" class="grid grid-cols-2 gap-2">
-                    <select name="incident_id" required class="col-span-2 bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                    <select name="incident_id" required class="col-span-2 bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white focus:outline-none">
                         {% for inc in incidents if inc.status == 'active' %} <option value="{{ inc.id }}">{{ inc.title }}</option> {% endfor %}
                     </select>
-                    <select name="marker_type" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                    <select name="marker_type" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white focus:outline-none">
                         <option value="Фронт на огъня">🔥 Фронт на огъня</option>
                         <option value="Посока на вятъра">💨 Посока на вятъра</option>
                     </select>
-                    <input type="text" name="details" required placeholder="Детайли (напр. Изток)" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
-                    <input type="number" step="any" id="tac-lat" name="lat" required placeholder="Lat" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
-                    <input type="number" step="any" id="tac-lon" name="lon" required placeholder="Lon" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
-                    <button type="submit" class="col-span-2 bg-orange-600 hover:bg-orange-700 text-white text-xs py-1 rounded font-bold cursor-pointer">Постави маркер на картата</button>
+                    <input type="text" name="details" required placeholder="Посока / Детайли" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                    <input type="number" step="any" id="tac-lat" name="lat" required placeholder="Ширина" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                    <input type="number" step="any" id="tac-lon" name="lon" required placeholder="Дължина" class="bg-slate-950 border border-slate-800 rounded p-1 text-xs text-white">
+                    <button type="submit" class="col-span-2 bg-orange-600 hover:bg-orange-700 text-white text-xs py-1.5 rounded font-bold cursor-pointer transition-colors">ПОСТАВИ НА КАРТАТА</button>
                 </form>
             </div>
             {% endif %}
 
-            <!-- ЧАТ С ПРЕДВАРИТЕЛНО ИЗГОТВЕНИ ШАБЛОНИ (Изискване от image.png) -->
-            <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col h-72 shadow-lg shrink-0">
                 <h3 class="text-xs font-black text-emerald-400 mb-2 uppercase tracking-wider"><i class="fa-solid fa-comments"></i> Оперативен Радиочат</h3>
-                <div class="flex-1 overflow-y-auto custom-scroll space-y-2 p-2 bg-slate-950 rounded border border-slate-800 mb-2">
+                <div class="flex-1 overflow-y-auto custom-scroll space-y-2 p-2 bg-slate-950 rounded border border-slate-900 mb-2">
                     {% for msg in chat %}
                     <div class="text-xs">
                         <strong class="{{ 'text-red-400' if msg.role=='admin' else 'text-blue-400' }}">{{ msg.user }}:</strong>
@@ -161,20 +248,48 @@
                     {% endfor %}
                 </div>
 
-                <!-- БЪРЗИ ШАБЛОНИ -->
-                <div class="flex gap-1 mb-2 overflow-x-auto pb-1">
-                    <button onclick="document.getElementById('chat-input').value='🔥 Пожарът е локализиран.';" class="bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 px-2 py-1 rounded shrink-0 cursor-pointer">🔒 Локализиран</button>
-                    <button onclick="document.getElementById('chat-input').value='🚒 Нуждаем се от допълнителни водоноски/цистерни!';" class="bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 px-2 py-1 rounded shrink-0 cursor-pointer">💧 Вода</button>
-                    <button onclick="document.getElementById('chat-input').value='🚑 Налично е пострадало лице, изпратете линейка!';" class="bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 px-2 py-1 rounded shrink-0 cursor-pointer">🚑 Пострадал</button>
+                <div class="flex gap-1 mb-2 overflow-x-auto pb-1 custom-scroll">
+                    <button type="button" onclick="document.getElementById('chat-input').value='🔥 Пожарът е локализиран.';" class="bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 px-2 py-1 rounded shrink-0 cursor-pointer">🔒 Локализиран</button>
+                    <button type="button" onclick="document.getElementById('chat-input').value='🚒 Нуждаем се от допълнителни водоноски!';" class="bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 px-2 py-1 rounded shrink-0 cursor-pointer">💧 Вода</button>
                 </div>
 
                 <form action="{{ url_for('chat_send') }}" method="POST" class="flex gap-2">
-                    <input type="text" name="text" id="chat-input" required placeholder="Напиши или избери шаблон..." class="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs text-white">
-                    <button type="submit" class="bg-emerald-600 text-white px-3 rounded"><i class="fa-solid fa-paper-plane"></i></button>
+                    <input type="text" name="text" id="chat-input" required placeholder="Напиши съобщение..." class="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-xs text-white focus:outline-none">
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 rounded transition-colors"><i class="fa-solid fa-paper-plane"></i></button>
                 </form>
             </div>
 
         </div>
     </main>
+
+    <script>
+        function showImageModal(src) {
+            document.getElementById('modalImg').src = src;
+            document.getElementById('imageModal').classList.remove('hidden');
+        }
+
+        function getUserLiveLocation() {
+            const statusDiv = document.getElementById('gps-status');
+            if (!navigator.geolocation) {
+                statusDiv.innerHTML = "❌ Липсва GPS.";
+                return;
+            }
+            navigator.geolocation.getCurrentPosition((position) => {
+                const lat = position.coords.latitude.toFixed(6);
+                const lon = position.coords.longitude.toFixed(6);
+                document.getElementById('user-lat').value = lat;
+                document.getElementById('user-lon').value = lon;
+                statusDiv.innerHTML = `✅ Координати: ${lat}, ${lon}`;
+            });
+        }
+
+        function updateUserRole(userId, newRole) {
+            fetch(`/user/${userId}/role`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: newRole })
+            }).then(() => location.reload());
+        }
+    </script>
 </body>
 </html>
